@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  主播放键的底：胶囊形。
+
+  ★ 两个坑：
+    一、不能用 oval —— 按钮是"宽 1.6 倍"的，椭圆会被拉成鸡蛋形。
+        圆角矩形设成高度的一半才是真正的胶囊。
+    二、必须配合 backgroundTint 使用。`Widget.Material3.Button.IconButton.Filled`
+        自带一个 backgroundTint（默认主色），它会**连我们设的 background
+        一起染色** —— 不显式覆盖的话，底色会变成 Material 默认的洋红。
+        所以这里颜色填白，由 tint 上色。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="30dp" />
+</shape>

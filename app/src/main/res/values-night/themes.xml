@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  深色主题。只覆盖与浅色不同的项 —— 颜色本身走 values-night/colors.xml 的
+  同名资源，这里不必重复写一遍。
+
+  唯一必须单独写的是状态栏图标明暗：深色底上要亮图标。
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.YuHIFI" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+    </style>
+</resources>

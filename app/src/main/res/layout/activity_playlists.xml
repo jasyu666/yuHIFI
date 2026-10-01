@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  歌单页 —— 整页就是一份歌单列表，第一行固定是「新建歌单」。
+
+  ★ 这里原来上半是「正在播放的队列」、下半是「我的歌单」。队列已经
+    挪到**正在播放页**的控制行里（和随机/循环并排的那个「队列」按钮）——
+    队列是"此刻正在发生的事"，它属于正在播放的语境，不属于歌单管理。
+    这样这个页面的名字和内容也就对上了：进来看到的就是歌单本身。
+
+  ★ 两者仍然是**分开摆**的（一个在播放页、一个在这里），没有合并 ——
+    队列是临时的、关掉 app 就没了；歌单是存盘的、长期留着。
+    混在一起用户会问"我昨天加的歌去哪了"。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootPlaylists"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="6dp">
+
+        <ImageButton
+            android:id="@+id/btnPlBack"
+            style="@style/Btn.Icon"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:contentDescription="@string/action_back"
+            android:src="@drawable/ic_back" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- 多选时这里会被换成「已选 N 项」，所以需要一个 id -->
+            <TextView
+                android:id="@+id/tvPlHeading"
+                style="@style/Text.Screen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_playlists"
+                android:textSize="19sp" />
+
+            <TextView
+                android:id="@+id/tvPlSubtitle"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="" />
+        </LinearLayout>
+
+        <!--
+          多选入口。和「全选」占同一个位置、互相切换显隐 ——
+          顶栏本来就不宽（音乐库那边已经有导入/新建/设置三个按钮），
+          再塞一个常驻按钮会把标题挤没。
+        -->
+        <!--
+          文字按钮，跟同一排的「导入 / 新建 / 设置」一个样式。
+
+          ★ 之前这里用的是描边图标。浅色顶栏上细描边的方框勾几乎看不见 ——
+            不是对比度不够，是那套图标的线宽是照着"画在深色底上"定的。
+            整排按钮里混一个不同材质的东西也显得突兀。
+        -->
+        <Button
+            android:id="@+id/btnSelect"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_select" />
+
+        <Button
+            android:id="@+id/btnSelectAll"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_select_all"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btnNewPlaylist"
+            style="@style/Btn.Outline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_new_playlist" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvPlaylists"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_card_flat"
+            android:clipToPadding="false"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:scrollbars="none" />
+
+        <!--
+          空态提示**贴在底部、且不铺满**。
+
+          ★ 之前这里铺满整个卡片并把 RecyclerView 一起藏掉，结果是：
+            没有歌单时连「新建歌单」那一行都没了 —— 空列表反而没有建歌单的入口。
+            这个提示只能是补充，不能盖住唯一的操作入口。
+        -->
+        <TextView
+            android:id="@+id/tvPlaylistsEmpty"
+            style="@style/Text.Body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="44dp"
+            android:gravity="center"
+            android:lineSpacingExtra="6dp"
+            android:paddingStart="32dp"
+            android:paddingEnd="32dp"
+            android:text="@string/empty_playlists"
+            android:textAlignment="center"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <include layout="@layout/view_mini_bar" />
+    <!-- 多选时的操作栏。和上面的迷你播放条互斥，两者不会同时出现 -->
+    <include layout="@layout/view_selection_bar" />
+
+</LinearLayout>

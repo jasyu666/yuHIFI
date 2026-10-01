@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  字符串集中在这里，不散落在布局里。
+
+  注意带 `glyph_` 前缀的那几个：它们是**图标字形的占位**（⏮ ⏯ ⏭ 之类）。
+  用文字字形而不是矢量图标，是为了不引一整套图标资源就能把界面立起来；
+  等以后要做精致图标时，替换的也只有这几处。
+-->
+<resources>
+    <string name="app_name">yuHIFI</string>
+
+    <!-- 导航 -->
+    <string name="nav_home">音乐</string>
+    <string name="nav_all_songs">所有歌曲</string>
+    <string name="nav_albums">专辑</string>
+    <!--
+      首页那张卡的标题，也是歌单页的页面标题。
+
+      ★ 原来叫「播放列表」，已改名。那个词有歧义 —— 它既可能指"我正在听的
+        这个队列"，也可能指"我收藏的歌单"。而这两样在本 App 里是**两个东西**：
+        队列是临时的、入口在正在播放页；歌单是存盘的、入口在这里。
+        叫「歌单」就不会再有人问"我昨天加的歌去哪了"。
+    -->
+    <string name="nav_playlists">歌单</string>
+    <string name="nav_library">音乐库</string>
+    <string name="nav_settings">设置</string>
+    <string name="nav_now_playing">正在播放</string>
+    <string name="nav_diagnostics">诊断</string>
+
+    <!-- 动作 -->
+    <string name="action_import">导入</string>
+    <string name="action_wireless">无线</string>
+    <string name="action_new_folder">新建</string>
+    <string name="action_queue">队列</string>
+    <string name="action_move_up">上移</string>
+    <string name="action_move_down">下移</string>
+    <string name="action_remove">移除</string>
+    <string name="action_clear_upcoming">清空未播放</string>
+    <string name="action_play">播放</string>
+    <!--
+      多选状态下"播放选中的这些"。
+      语义和点单曲一致：**队列 = 选中的这些，从第一首开始** ——
+      不引入"选中就变成临时列表"这种特例。
+    -->
+    <string name="action_play_selected">播放选中</string>
+    <string name="action_close">关闭</string>
+
+    <!--
+      起播失败时弹的那条说明。
+      ★ 按"结论 → 原因 → 怎么办"组织，术语对用户可见，不用口语。
+      ★ 这里是**对话框**，可以整段；但也别写成论文 —— 三小段足够。
+    -->
+    <string name="playback_failed_title">无法播放</string>
+    <string name="err_dsd_system_audio">系统音频模式不支持 DSD 歌曲。
+
+原因：DSD 为 1bit 位流，系统音频仅接受 PCM，输出前须经有损转换，故不提供此方式。
+
+如需播放，请连接 USB 解码器，或在「设置 → 输出方式」中选择「USB 直连」。</string>
+    <string name="action_pause">暂停</string>
+    <string name="action_resume">继续</string>
+    <string name="action_stop">停止</string>
+    <string name="action_delete">删除</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_confirm">确定</string>
+
+    <!-- 图标字形（占位用，见文件头说明） -->
+    <string name="glyph_prev">⏮</string>
+    <string name="glyph_next">⏭</string>
+    <string name="glyph_play">▶</string>
+    <string name="glyph_pause">⏸</string>
+    <string name="glyph_more">⋯</string>
+
+    <!-- 内容描述（无障碍） -->
+    <string name="cd_cover">专辑封面</string>
+    <string name="cd_scanning">正在扫描音乐库</string>
+    <string name="cd_prev">上一首</string>
+    <string name="cd_next">下一首</string>
+    <string name="cd_play">播放或暂停</string>
+    <string name="cd_drag">拖动排序</string>
+    <string name="cd_select">选择</string>
+    <string name="action_select">多选</string>
+    <string name="action_select_all">全选</string>
+    <string name="action_deselect_all">取消全选</string>
+    <string name="action_cancel_selection">取消选择</string>
+    <string name="action_add_to_playlist_short">加到歌单…</string>
+    <string name="action_move_to">移动…</string>
+    <string name="action_delete_selected">删除</string>
+    <string name="sel_count_fmt">已选 %1$d 项</string>
+    <string name="action_back">返回</string>
+    <string name="action_connect">点这里连接</string>
+    <string name="action_retry">重试</string>
+    <!--
+      正在播放页的横竖屏切换按钮。竖屏布局上写「横屏」，横屏布局上写「竖屏」——
+      文案说的是**按下去会发生什么**，不是"当前是什么状态"。
+      ★ 两者都是"动作"而不是"状态"，所以别写成「已横屏」那种。
+    -->
+    <string name="action_landscape">横屏</string>
+    <string name="action_portrait">竖屏</string>
+
+    <!--
+      解码器状态条（只在首页）。
+
+      ★ 失败文案用 %1$s 接 [DeviceGate.lastMessage]，**不要另编一套** ——
+        那边已经区分了"没找到设备 / 权限被拒 / libusb 接管失败"，
+        这里再猜一遍只会两边对不上。
+    -->
+    <string name="cd_device_state">解码器连接状态</string>
+    <string name="device_none">未连接 USB 解码器</string>
+    <string name="device_connecting">正在连接…</string>
+    <string name="device_ok_fmt">已连接 %1$s</string>
+    <string name="device_fail_fmt">连接失败：%1$s</string>
+    <!-- 设备没报产品名时的兜底称呼，以及 lastMessage 意外为空时的兜底 -->
+    <string name="device_generic">USB 解码器</string>
+    <string name="device_unknown">未知原因</string>
+    <string name="hint_queue_edit">按住左侧把手可以拖动排序。点一行直接跳过去播放。</string>
+
+    <!-- 歌单 / 专辑 -->
+    <string name="action_new_playlist">新建歌单</string>
+    <string name="action_rename">重命名</string>
+    <string name="action_add_to_playlist">加到歌单…</string>
+    <string name="cd_enter">进入</string>
+    <string name="hint_all_songs">右侧字母可以快速跳转</string>
+
+    <!-- 空态与提示 -->
+    <string name="empty_library">库还是空的\n\n点右上角「导入」从手机里选，\n或用「无线」从电脑浏览器上传</string>
+    <string name="hint_no_device">尚未连接 USB 设备 —— 插上解码器后会自动接管</string>
+    <string name="hint_not_playing">未在播放</string>
+    <!--
+      没有歌曲在播放时的空态文案。首页播放条和正在播放页**共用这一句**。
+
+      ★ 必须共用：播放条常驻之后，用户从条上点进播放页，两边说的话得一样。
+        一边写「没有歌曲在播放」另一边写「未在播放」，看起来像两个不同的状态。
+
+      ★ 进 strings.xml 而不是硬编码在 Kotlin 里：两条线（main 口语 /
+        release 正式文体）就是靠这个文件分叉的，硬编码将来正式化时必漏。
+    -->
+    <string name="mini_none">没有歌曲在播放</string>
+    <string name="empty_all_songs">曲库是空的\n\n先到「音乐库」导入几首歌</string>
+    <string name="empty_albums">还没有专辑\n\n曲目的专辑标签决定它们怎么分组</string>
+    <string name="empty_playlists">还没有歌单\n\n新建一个，把喜欢的歌攒起来</string>
+    <string name="unknown_album">未知专辑</string>
+
+    <!-- 传输状态 -->
+    <string name="state_passthrough">直通 · bit-perfect</string>
+    <!--
+      系统音频（AAudio）那条路。**不是** bit-perfect，所以不能复用上面那条 ——
+      它经过 AudioFlinger 混音，走蓝牙时还有一层真有损的编码。
+    -->
+    <string name="state_system_audio">系统音频 · 非 bit-perfect</string>
+    <!--
+      状态条只当**输出方式指示**用，不做设备连接状态报告。
+      ★ 刻意不写"非 bit-perfect"：那条路本来就是这样，天天顶着一句免责声明
+        只会变成噪音 —— 想知道细节的人去看设置页里那段说明。
+    -->
+    <string name="device_system_audio">系统音频</string>
+    <!--
+      直连时带上型号 —— 这时"哪台设备在独占"是有用的信息。
+      系统音频那边**不带**：那条路可能走蓝牙、外放，报一个 USB 型号反而误导。
+    -->
+    <string name="device_usb_direct">USB 直连</string>
+    <string name="device_usb_direct_fmt">USB 直连 · %1$s</string>
+
+    <!-- 交叉馈送。档位名和状态条那截都从这儿来，别在 Kotlin 里再写一份 -->
+    <string name="crossfeed_fmt">交叉馈送 · %1$s</string>
+
+    <!--
+      开了交叉馈送时的徽章文案。
+
+      ★ 直通那条**必须去掉「bit-perfect」** —— 交叉馈送就是在改送往 DAC 的样本，
+        还写着 bit-perfect 就是撒谎。颜色也跟着从 ok 降成 neutral。
+      ★ 系统音频那条本来就没有 bit-perfect 可言，所以只换掉后半截。
+    -->
+    <string name="volume_control">音量</string>
+    <!--
+      可调范围的上/下端点。定义的是**滑条的两头** —— 拖到头也只会到上限，
+      不是 0dB。用户设它就是为了"手一滑不至于炸耳朵"。
+    -->
+    <string name="volume_ceiling">上限</string>
+    <string name="volume_floor">下限</string>
+    <!--
+      DSD 警告。
+
+      ★★ 这个用 error 色而不是普通灰 hint —— 它不是补充说明，
+         是"这个功能对一整类文件完全无效"。不写醒目点，
+         用户放 DSD 时发现滑条不动，会当成 bug 报回来。
+    -->
+    <string name="volume_dsd_warning">DSD 原生播放（dsf / dff）不走 PCM，音量控制对它无效 —— 放 DSD 时滑条和输入框都不起作用。</string>
+    <!--
+      音量锁。锁上之后滑条和输入框都变灰不可动（用户 2026-09-29 选的是 A）。
+
+      ★ 锁是"权限"不是"范围" —— 和上限/下限不是一回事：
+        上限管"最多能调到哪"，锁管"能不能调"。
+    -->
+    <string name="volume_lock">音量锁</string>
+    <!-- 锁上时播放页数值那一格的字头。★ 光变灰不够，得让人看出是"锁着"而不是"坏了" -->
+    <string name="volume_locked_prefix">已锁定</string>
+    <!-- 设置页锁上时的说明 -->
+    <string name="volume_locked_hint">已锁定 —— 三根滑条和三个输入框都锁住了。要调先把「音量锁」关掉。</string>
+
+    <!--
+      后台无限制（2026-09-29 加）。
+
+      ★ 这一项**不是锦上添花的提示**，是后台播放的前置条件：
+        不设置的话系统会在后台把进程杀掉，音乐就断了。
+      ★ 用户定的是「给出提示」而不是跳转 —— 小米那套厂商页面点不准，
+        跳错地方比不跳更让人困惑。所以这里是**把路径写清楚**。
+    -->
+    <string name="bg_unrestricted">后台无限制</string>
+    <string name="bg_unrestricted_title">让播放能在后台活下去</string>
+    <string name="bg_unrestricted_msg">不设置的话，系统会在后台把 yuHIFI 杀掉，音乐就断了。
+
+小米 / HyperOS：
+  设置 → 应用管理 → yuHIFI → 省电策略 → 无限制
+  再把同一页的「自启动」打开
+
+其他机型：
+  设置 → 电池 → 电池优化 → 找到 yuHIFI → 不优化
+
+★ 页面里读到的状态在小米上不一定准 —— 以系统里实际显示为准。</string>
+    <string name="action_app_details">打开应用详情页</string>
+    <string name="action_reconnect">重新连接</string>
+    <!--
+      开了音量控制时的徽章。
+
+      ★ 和交叉馈送同理：在样本上做了乘法，就不能再标 bit-perfect。
+      ★ 位深跟着说出去了（16bit 源会被提到 24bit），用户有权知道。
+    -->
+    <string name="state_passthrough_volume">直通 · 音量 %1$s</string>
+    <string name="state_system_audio_volume">系统音频 · 音量 %1$s</string>
+    <string name="state_passthrough_crossfeed">直通 · %1$s</string>
+    <string name="state_system_audio_crossfeed">系统音频 · %1$s</string>
+    <string name="crossfeed_level_weak">弱</string>
+    <string name="crossfeed_level_mid">中</string>
+    <string name="crossfeed_level_strong">强</string>
+    <string name="action_switch_direct">改用直连</string>
+    <string name="direct_prompt_title">检测到 USB 解码器</string>
+    <string name="direct_prompt_msg">设备：%1$s\n\nUSB 直连 —— 独占该设备，bit-perfect 输出；DSD 仅可经此方式播放。\n\n系统音频 —— 支持蓝牙及外接耳机，无需解码器，可随时切换。</string>
+    <string name="direct_prompt_yes">改用直连</string>
+    <string name="direct_prompt_no">保持系统音频</string>
+    <string name="state_resampling">重采样</string>
+    <string name="state_idle">已停止</string>
+    <string name="label_source">源</string>
+    <!--
+      正在播放页底部那两个可切换的页。「源」复用上面的 label_source。
+    -->
+    <string name="label_lyrics">歌词</string>
+    <!--
+      没有内嵌歌词时的空态。
+      ★ 说清楚是"**这首**没有"，而不是"功能坏了" —— 用户库里 1111/2923 首有歌词，
+        碰到没有的很正常。
+    -->
+    <string name="lyrics_none">这首没有内嵌歌词</string>
+    <string name="label_output">输出</string>
+    <string name="label_buffer">缓冲</string>
+    <string name="label_underrun">欠载</string>
+    <string name="label_queue">队列</string>
+
+    <!-- 循环模式 -->
+    <string name="repeat_off">循环:关</string>
+    <string name="repeat_all">循环:全部</string>
+    <string name="repeat_one">循环:单曲</string>
+    <string name="shuffle_on">随机:开</string>
+    <string name="shuffle_off">随机</string>
+</resources>

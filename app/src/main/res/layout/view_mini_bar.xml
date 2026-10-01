@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  底部迷你播放条 —— 常驻的那一条。
+
+  ★ 抽成独立布局用 <include> 引入，是因为门户页、曲目列表页、音乐库三处
+    都要它。之前音乐库和队列各写了一份，按钮大小和间距已经开始不一样了 ——
+    这种"同一样式抄两遍"正是风格散掉的起点。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/miniBar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginTop="10dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginBottom="12dp"
+    android:background="@drawable/bg_bar"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="6dp"
+    android:paddingBottom="8dp"
+    android:visibility="gone">
+
+    <ImageView
+        android:id="@+id/ivMiniCover"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:contentDescription="@string/cd_cover" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvMiniTitle"
+            style="@style/Text.Title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvMiniSpec"
+            style="@style/Text.Meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btnMiniPrev"
+        style="@style/Btn.Icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="@string/cd_prev"
+        android:src="@drawable/ic_prev" />
+
+    <ImageButton
+        android:id="@+id/btnMiniPlay"
+        style="@style/Btn.Icon"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:contentDescription="@string/cd_play"
+        android:src="@drawable/ic_pause" />
+
+    <ImageButton
+        android:id="@+id/btnMiniNext"
+        style="@style/Btn.Icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="@string/cd_next"
+        android:src="@drawable/ic_next" />
+</LinearLayout>

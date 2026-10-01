@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  可复用样式。
+
+  ★ 存在的意义是**消除散落的字面量**。之前每个布局里都写死
+    `android:textSize="12sp"` + `android:textColor="#FF8FA3B8"`，
+    结果同一个「副标题」在三个界面里有三种字号、四种灰 ——
+    统一风格最难的部分不是配色，是这类没人管的碎数值。
+
+  这里定成命名样式，布局只管引用。
+-->
+<resources>
+
+    <!-- ══ 排版 ══
+         四级层次，够用且不会失控：
+           Screen   页面级大标题（"音乐库"）
+           Section  区块标题（"常规" / "测试功能"）
+           Title    条目主文字（曲名、设置项名）
+           Body     正文
+           Meta     副标题 / 元信息（最小一级）
+    -->
+    <style name="Text" parent="android:Widget.TextView">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Text.Screen">
+        <item name="android:textSize">21sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
+    <style name="Text.Section">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/brand</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="Text.Title">
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="Text.Body">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <style name="Text.Meta">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+    </style>
+
+    <!-- ══ 卡片 ══
+         统一 14dp 圆角 + 1dp 描边。描边而不是阴影：
+         在深色底上阴影几乎看不见，描边才划得出边界。
+    -->
+    <style name="Card">
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:padding">14dp</item>
+    </style>
+
+    <style name="Card.Flat">
+        <item name="android:background">@drawable/bg_card_flat</item>
+        <item name="android:padding">0dp</item>
+    </style>
+
+    <!-- ══ 按钮 ══
+         三种：主按钮（填色）、次按钮（描边）、文字按钮（无底）。
+         用 Widget.Material3.Button.* 做父样式，保留水波纹和最小触控区。
+    -->
+    <style name="Btn" parent="Widget.Material3.Button">
+        <item name="android:textSize">13sp</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="android:minHeight">38dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Btn.Outline" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textSize">13sp</item>
+        <item name="android:minHeight">38dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">10dp</item>
+        <item name="android:textColor">@color/brand</item>
+        <item name="strokeColor">@color/border</item>
+    </style>
+
+    <style name="Btn.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textSize">13sp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <!-- 播放控制的大按钮（⏮ ⏯ ⏭），要更大更好按 -->
+    <style name="Btn.Transport" parent="Widget.Material3.Button.TonalButton">
+        <item name="android:textSize">17sp</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+
+    <!-- ══ 图标按钮 ══
+         传输控制用图标而不是字符：⏮⏯⏭ 这几个码位默认走 emoji 字体，
+         会被渲染成彩色方块（实拍截图里那个橙色暂停键就是），
+         和界面其余部分的单色风格完全不搭。
+    -->
+    <!--
+      ★ 图标一律比同层级的文字深一档。
+
+        原因是**笔画覆盖的像素少**：一个 24dp 的箭头，真正着色的部分
+        可能只占方框的 10%，而一行文字能占到 40%。同一个颜色，
+        图标看起来就是要淡一截 —— 这不是错觉，是覆盖率差异。
+
+        返回、上一首/下一首、删除、更多，全是**可点的控件**，
+        按"控件要和正文一样看得清"该用 text_primary。
+    -->
+    <style name="Btn.Icon" parent="Widget.Material3.Button.IconButton">
+        <item name="iconTint">@color/text_primary</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:padding">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+    </style>
+
+    <!-- 主播放键：填色实心，视觉重心落在这里 -->
+    <style name="Btn.Icon.Filled" parent="Widget.Material3.Button.IconButton.Filled">
+        <item name="iconTint">@color/on_brand</item>
+        <item name="android:background">@drawable/bg_play</item>
+        <!-- 必须显式覆盖：父样式的 backgroundTint 会把上面的 background 一起染色 -->
+        <item name="backgroundTint">@color/brand</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:padding">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">16dp</item>
+    </style>
+
+    <!-- ══ 徽章 ══
+         规格标签、bit-perfect 徽章都用它。留出内边距让它像个"标签"
+         而不是一段普通文字。
+    -->
+    <style name="Badge">
+        <item name="android:textSize">11sp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:paddingTop">3dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:background">@drawable/bg_badge_ok</item>
+        <item name="android:textColor">@color/ok</item>
+    </style>
+
+    <style name="Badge.Neutral">
+        <item name="android:background">@drawable/bg_badge_neutral</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+    </style>
+
+    <style name="Badge.Warn">
+        <item name="android:background">@drawable/bg_badge_warn</item>
+        <item name="android:textColor">@color/warn</item>
+    </style>
+</resources>

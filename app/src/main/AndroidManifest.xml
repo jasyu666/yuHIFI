@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- USB Host 是本 App 的硬性前提 -->
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="true" />
+
+    <!--
+      USB 访问权限通过 UsbManager.requestPermission() 的系统弹窗授予，
+      不属于 Android 运行时权限体系，本 App 也不需要存储权限（走 SAF）。
+
+      但前台服务需要权限：我们绕开了 AudioFlinger，系统看不出这个 App 在放音，
+      切屏后会把进程当缓存进程冻结（见 PlaybackService 的说明）。
+    -->
+    <!--
+      播放期间必须持有 PARTIAL_WAKE_LOCK，否则息屏后 CPU 会挂起。
+      Android 的音频栈在放音时会自动替应用持有它（普通音乐 App 息屏能继续放就是这个原因），
+      而我们绕开了 AudioFlinger，没人替我们拿 —— 前台服务挡不住 CPU 挂起，那是两码事。
+      实测：息屏时"卡顿更多"，而 dumpsys power 显示我们从未持有过任何 wakelock。
+      普通权限，无需运行时授权。
+    -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- API 33+ 通知要用户授权才可见。被拒绝不影响前台服务运行与防冻结效果，
+         只是那条常驻通知不显示 —— 所以是"尽力索取"，不是硬性依赖。 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 无线传输要起一个局域网 HTTP 服务。普通权限，不是危险权限。
+         只在用户主动打开"无线传输"时才用得上。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.YuHIFI">
+
+        <!--
+          启动页 = 门户首页。四个入口：所有歌曲 / 音乐库 / 播放列表 / 专辑。
+
+          诊断页（MainActivity）仍然保留，但不在日常入口上 —— 它是排查工具，
+          从「设置 → 诊断与设备」进去。
+        -->
+        <!--
+          ★★ 屏幕方向：**只有正在播放页允许旋转**，其他页一律锁竖屏。
+
+            横屏是为"大封面 + 歌词"设计的（见 layout-land/activity_now_playing.xml），
+            别的页面横过来只会把列表压得又扁又长，没有收益。
+
+          ★ 用 manifest 声明而不是在每个 Activity 里 setRequestedOrientation：
+            声明式的锁不需要页面自己记得这件事，也不会因为"某个页面忘了调"而漏掉。
+            NowPlayingActivity **刻意不加**这一条 —— 它就是唯一允许旋转的那个。
+        -->
+        <activity
+            android:name=".HomeActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              ★ 这里原来还有一条 USB_DEVICE_ATTACHED 的 intent-filter，
+                注释写着"插上就能用" —— 但那是**假的**：HomeActivity 从来
+                没读过那个 intent，被拉起来之后什么也不会发生。删掉。
+
+              设备接入现在由 DeviceGate 用**动态注册的广播**处理，挂在
+              applicationContext 上（见 App.onCreate）。这样既真的能接管，
+              也不会因为 HomeActivity 是 singleTask 而在你听歌时
+              插一下解码器就把整个任务栈拉到前台。
+
+              代价：App 没在运行时插解码器不会自动启动它。播放器本来就是
+              用户主动打开的，这个代价换"不抢焦点"是划算的。
+            -->
+        </activity>
+
+        <!-- 音乐库（文件夹浏览）。从首页卡片进入，不再是 launcher -->
+        <activity
+            android:name=".LibraryActivity"
+            android:exported="false"
+            android:label="@string/nav_library"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".HomeActivity" />
+
+        <!-- 通用曲目列表：所有歌曲 / 专辑详情 / 歌单详情 -->
+        <activity
+            android:name=".TrackListActivity"
+            android:exported="false"
+            android:label="曲目"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".HomeActivity" />
+
+        <activity
+            android:name=".AlbumsActivity"
+            android:exported="false"
+            android:label="@string/nav_albums"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".HomeActivity" />
+
+        <activity
+            android:name=".PlaylistsActivity"
+            android:exported="false"
+            android:label="@string/nav_playlists"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".HomeActivity" />
+
+        <activity
+            android:name=".NowPlayingActivity"
+            android:exported="false"
+            android:label="正在播放"
+            android:launchMode="singleTop"
+            android:parentActivityName=".HomeActivity" />
+
+        <activity
+            android:name=".QueueActivity"
+            android:exported="false"
+            android:label="播放队列"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".NowPlayingActivity" />
+
+        <activity
+            android:name=".VinylDesignActivity"
+            android:exported="false"
+            android:label="彩胶设计"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".SettingsActivity" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="设置"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".HomeActivity" />
+
+        <!-- 诊断页。手动接管设备、扫描速率、验证真伪、导出报告 —— 出问题时才进 -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="诊断"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <!-- 播放期间常驻，防止进程被 App Freezer 冻结。
+             不做任何播放工作，播放全在原生层。 -->
+        <service
+            android:name=".PlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+    </application>
+
+</manifest>

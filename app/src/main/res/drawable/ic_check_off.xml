@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  未选中的勾选圈。空心 + 描边
+
+  ★ 半径用 8.2、不是 9：描边会往外扩 strokeWidth/2 = 0.8，
+    所以**外缘**正好落在 9 —— 和 ic_check_on 那个实心圆的外缘对齐。
+    原来这里是 8（外缘 8.8），勾上的那一瞬间圈会胀大一点。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12,3.8 A8.2,8.2 0 1 1 11.99,3.8 Z"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+</vector>

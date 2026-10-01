@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg">
+
+    <!-- 上半：操作区 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="10dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
+                android:textColor="@color/brand"
+                android:textSize="12sp"
+                android:text="就绪" />
+
+            <Button
+                android:id="@+id/btnRefresh"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="刷新 USB 设备列表" />
+
+            <Button
+                android:id="@+id/btnPermission"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="申请 USB 权限 / 打开设备" />
+
+            <Button
+                android:id="@+id/btnParse"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="① 解析 UAC 描述符（纯 Java）" />
+
+            <Button
+                android:id="@+id/btnNativeProbe"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="② 原生探针 libusb_wrap_sys_device" />
+
+            <Button
+                android:id="@+id/btnClaim"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="③ 抢占接口 + fd 有效性验证" />
+
+            <Button
+                android:id="@+id/btnBitPerfect"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="④ BIT_PERFECT 混音属性检测" />
+
+            <Button
+                android:id="@+id/btnScanRates"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⑥ 扫描设备接受的采样率" />
+
+            <Button
+                android:id="@+id/btnScanRatesLive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="⑧ 速率真伪验证（实际发流，读设备 feedback 端点）" />
+
+            <!--
+              ⑨ 专测 raw DSD 通道。和 ⑧ 是同一套机制（发流 + 读 feedback），
+              只是挂到 alt 4 上、用 DSD 的候选速率。
+
+              ⚠ 会出声，而且是**噪音** —— 送过去的是按 32bit PCM 生成的测试音，
+              设备按 DSD 解，听起来是刺耳的嘶声。测之前先把音量调低。
+            -->
+            <Button
+                android:id="@+id/btnScanDsd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="⑨ DSD 速率实测（挂 raw DSD 通道，读 feedback 定案）" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="10dp"
+                android:text="⑤ 出声测试采样率（换一个值才能验证切换是否真的生效）"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <Spinner
+                android:id="@+id/spinnerRate"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@color/surface" />
+
+            <Button
+                android:id="@+id/btnTone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⑤ 开始出声测试（1kHz 正弦）" />
+
+            <Button
+                android:id="@+id/btnStop"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="■ 停止播放 / 释放接口" />
+
+            <!-- ================= P1：真实文件播放 ================= -->
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp"
+                android:text="── P1 真实文件播放 ──"
+                android:textColor="@color/brand"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="6dp"
+                android:text="在途 URB 深度（决定抗卡顿余量；同时决定 seek 后旧音频的尾巴长度）"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <CheckBox
+                android:id="@+id/cbAllowAllRates"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="信任 44.1k 家族（8 个标准速率全直通，44.1k 曲库比特完美；取消则退回旧的重采样策略）"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <CheckBox
+                android:id="@+id/cbOutputDump"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="输出字节转储（bit-perfect 验证：把送进 USB 的字节存成文件，停止时落盘）"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <Spinner
+                android:id="@+id/spinnerUrb"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@color/surface" />
+
+            <CheckBox
+                android:id="@+id/cbFlushOnSeek"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="seek 时丢弃在途数据（去掉旧音频尾巴，代价是一小段静音）"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <CheckBox
+                android:id="@+id/cbFollowFeedback"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="跟随设备反馈速率（A/B 对比用，下次起播生效）"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/btnPickFile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⑦ 选择音频文件并播放" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnPrev"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:enabled="false"
+                    android:text="⏮" />
+
+                <Button
+                    android:id="@+id/btnPlayPause"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.2"
+                    android:enabled="false"
+                    android:text="暂停" />
+
+                <Button
+                    android:id="@+id/btnNext"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:enabled="false"
+                    android:text="⏭" />
+
+                <Button
+                    android:id="@+id/btnStopFile"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.6"
+                    android:enabled="false"
+                    android:text="停止" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvFileInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="6dp"
+                android:text=""
+                android:textColor="@color/brand"
+                android:textSize="11sp" />
+
+            <SeekBar
+                android:id="@+id/seekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/tvPlayStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <!-- ================= 硬件音量 ================= -->
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp"
+                android:text="── 硬件音量（DAC Feature Unit）──"
+                android:textColor="@color/brand"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvVolumeInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="音量: 需先打开设备并解析描述符"
+                android:textColor="@color/brand"
+                android:textSize="11sp" />
+
+            <SeekBar
+                android:id="@+id/seekVolume"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="false" />
+
+            <Button
+                android:id="@+id/btnExport"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="导出完整报告到文件" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 下半：报告区 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.6"
+        android:background="@color/surface"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tvReport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textColor="@color/text_primary"
+            android:textIsSelectable="true"
+            android:textSize="10sp"
+            android:text="" />
+    </ScrollView>
+
+</LinearLayout>

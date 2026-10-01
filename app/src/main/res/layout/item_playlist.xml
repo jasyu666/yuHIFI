@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 一个歌单。版式和队列卡片一致，只是右边多了个更多按钮 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="10dp">
+
+    <ImageView
+        android:id="@+id/ivCheck"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:layout_marginEnd="6dp"
+        android:contentDescription="@string/cd_select"
+        android:src="@drawable/ic_check_off"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/ivPlCover"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:contentDescription="@string/cd_cover"
+        android:scaleType="fitCenter" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvPlName"
+            style="@style/Text.Title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/tvPlMeta"
+            style="@style/Text.Meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:ellipsize="end"
+            android:maxLines="1" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btnPlMore"
+        style="@style/Btn.Icon"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:contentDescription="@string/glyph_more"
+        android:src="@drawable/ic_more" />
+</LinearLayout>

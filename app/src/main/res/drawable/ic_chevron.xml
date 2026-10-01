@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  右向箭头。卡片右侧的"可进入"提示。
+
+  用**描边**而不是填充：它是装饰性的方向提示，不是实体图形。
+  画成实心三角会和左边那排功能图标抢视觉重量。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M9.5,5.5 L16,12 L9.5,18.5"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

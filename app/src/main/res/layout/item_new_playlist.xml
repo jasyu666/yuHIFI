@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「新建歌单」行。常驻在歌单列表第一行，而不是只放在顶栏 ——
+  歌单为空时，用户的眼睛是盯着列表区的，顶栏那个按钮容易被忽略。
+  多花一行，少一次"到底在哪儿建"。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="10dp">
+
+    <ImageView
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/bg_icon_soft"
+        android:contentDescription="@string/action_new_playlist"
+        android:padding="10dp"
+        android:src="@drawable/ic_add"
+        android:tint="@color/brand" />
+
+    <TextView
+        style="@style/Text.Title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_weight="1"
+        android:text="@string/action_new_playlist"
+        android:textColor="@color/brand" />
+</LinearLayout>

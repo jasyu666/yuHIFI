@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  正在播放。
+
+  视觉重心是**封面**和**那块徽章**，其余元素一律退到次要层级。
+  版面自上而下：封面 → 曲名/艺术家 → 徽章 → 进度 → 控制 → 详情卡。
+
+  封面留了很大的上下留白，是有意的 —— 一张大图挤在元素中间会显得局促，
+  给它呼吸空间，整页的"贵气"就出来了。
+-->
+<!--
+  ★★ 根节点用 LinearLayout 包一层，**必须和 layout-land 那份同类型**。
+
+     原来是直接把 ScrollView 当根、id 就叫 rootNowPlaying，而横屏那份的
+     同名 id 挂在 LinearLayout 上 —— 旋转时系统按 **id** 保存/恢复视图状态，
+     于是把 ScrollView 的 SavedState 往 LinearLayout 上塞（或反过来），
+     直接 ClassCastException 崩掉：
+
+         AbsSavedState$1 cannot be cast to ScrollView$SavedState
+             at android.widget.ScrollView.onRestoreInstanceState
+
+     ★ 规则：**两份布局里同名 id 的控件，类型必须一致。**
+       滚动交给里面那个没 id 的 ScrollView（没 id 就不参与状态恢复）。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootNowPlaying"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="28dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="28dp">
+
+        <ImageView
+            android:id="@+id/ivBigCover"
+            android:layout_width="272dp"
+            android:layout_height="272dp"
+            android:contentDescription="@string/cd_cover" />
+
+        <TextView
+            android:id="@+id/tvNpTitle"
+            style="@style/Text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="26dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="2"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvNpArtist"
+            style="@style/Text.Meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textSize="13sp" />
+
+        <!--
+          bit-perfect 徽章 —— 本播放器的差异化信息，所以要显眼。
+          别的播放器给不出这个：它们不知道设备实际跑在什么速率上，
+          我们有 feedback 端点这个真判据。
+        -->
+        <TextView
+            android:id="@+id/tvBadge"
+            style="@style/Badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:paddingStart="14dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="6dp"
+            android:textSize="12sp" />
+
+        <!-- ══ 进度 ══ -->
+        <SeekBar
+            android:id="@+id/seekNp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvPos"
+                style="@style/Text.Meta"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tvDur"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!--
+          ══ 音量 ══
+
+          ★ 只在设置里开了「音量控制」时显示（默认 GONE）。
+          ★ 它调的是**软件数字音量** —— USB 直连绕过了系统混音，系统音量条够不着；
+            而不少小尾巴只有静音、没有硬件音量。详见 Settings.volumeControl。
+        -->
+        <LinearLayout
+            android:id="@+id/rowVolume"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/volume_control" />
+
+            <SeekBar
+                android:id="@+id/seekVolumeNp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tvVolumeNp"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:gravity="end" />
+
+            <!--
+              音量锁（用户 2026-09-29 定：播放页 + 设置页都要）。
+
+              ★★ **两态用两张不同的图**（ic_lock / ic_lock_open），不是同一张图换个颜色 ——
+                 只变灰的话看不出"是锁着还是坏了"，FACT 里那条"状态写进去了 ≠
+                 用户看得见"说的就是这个。
+              ★ 图标本身是白底遮罩，颜色靠 imageTintList 上。
+            -->
+            <ImageButton
+                android:id="@+id/btnVolLock"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:padding="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/volume_lock"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_lock_open" />
+        </LinearLayout>
+
+        <!--
+          ④ DSD 警告 —— **只在"音量控制开着 + 当前这首是 DSD"时出现**。
+
+          ★ 设置页那条红的说的是通例；这一条说的是**此时此刻**，
+            所以它必须贴着音量那一行、而且只在真的用不上时才冒出来。
+          ★ 不放 markdown：TextView 不渲染 `**`，会显示成星号（踩过）。
+        -->
+        <TextView
+            android:id="@+id/tvVolWarn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/volume_dsd_warning"
+            android:textColor="@color/error"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+        <!-- ══ 传输控制 ══ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnNpPrev"
+                style="@style/Btn.Icon"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="1"
+                android:contentDescription="@string/cd_prev"
+                android:src="@drawable/ic_prev"
+                android:layout_marginEnd="10dp"/>
+
+            <ImageButton
+                android:id="@+id/btnNpPlay"
+                style="@style/Btn.Icon.Filled"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="1.6"
+                android:contentDescription="@string/cd_play"
+                android:src="@drawable/ic_pause"
+                android:tint="@color/on_brand"
+                />
+
+            <ImageButton
+                android:id="@+id/btnNpNext"
+                style="@style/Btn.Icon"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="1"
+                android:contentDescription="@string/cd_next"
+                android:src="@drawable/ic_next"
+                android:layout_marginStart="10dp"/>
+        </LinearLayout>
+
+        <!-- ══ 播放模式 ══ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnNpShuffle"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/shuffle_off" />
+
+            <Button
+                android:id="@+id/btnNpRepeat"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/repeat_off" />
+
+            <Button
+                android:id="@+id/btnNpQueue"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/label_queue" />
+
+            <!--
+              「横屏」。★ 和别的页面不同，这一页**允许旋转**（见 manifest），
+              这个按钮是主动切过去的入口 —— 用户躺着看歌词时不必去转手机。
+              ★ 用**显式锁定**（LANDSCAPE / PORTRAIT）而不是 UNSPECIFIED：
+                后者会跟着系统自动旋转开关走，同样一次点击在不同人手机上
+                结果不一样，行为不可预期。
+              横屏布局下同一个 id 的按钮文字变成「竖屏」。
+            -->
+            <Button
+                android:id="@+id/btnOrientation"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/action_landscape" />
+        </LinearLayout>
+
+        <!--
+          ══ 源 / 歌词 ══
+
+          两个页共用这一块，靠上面那两个标签切换；同一时刻只有一个可见。
+          「源」= 原来的实时规格数据（tvNpDetail），原样搬过来。
+          「歌词」= 一个**固定高度**的 RecyclerView。
+
+          ★★ 歌词为什么用 RecyclerView 而不是往外层 ScrollView 里塞 TextView：
+            1. 外层 ScrollView 和它自己需要的滚动会**互相抢手势**（嵌套滚动）
+            2. 逐行同步高亮要**按行定位**、还要让它滚到中间 —— 那是一行一项的事
+          ★ 上下各留 100dp 的 padding，是为了让第一行和最后一行也能滚到
+            视野中间，而不是卡在顶/底边。
+        -->
+        <LinearLayout
+            style="@style/Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tabSource"
+                    style="@style/Text.Section"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingEnd="20dp"
+                    android:text="@string/label_source" />
+
+                <TextView
+                    android:id="@+id/tabLyrics"
+                    style="@style/Text.Section"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_lyrics" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvNpDetail"
+                style="@style/Text.Meta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="5dp"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvLyricsEmpty"
+                style="@style/Text.Meta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/lyrics_none"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvLyrics"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:layout_marginTop="4dp"
+                android:clipToPadding="false"
+                android:paddingTop="100dp"
+                android:paddingBottom="100dp"
+                android:scrollbars="none"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+    </ScrollView>
+</LinearLayout>

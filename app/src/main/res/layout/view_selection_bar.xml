@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  多选时的底部操作栏。
+
+  按钮在代码里加（每个页面能做的操作不一样），这里只是个容器。
+  每个按钮摊到等宽 —— 固定宽度的话，三个按钮在小屏上会挤出去。
+
+  位置和迷你播放条一样（都是页面最底下那一条），但两者不会同时出现：
+  多选时迷你条让位。同时摆两条的话，屏幕上会横着两条几乎一样的白条，
+  用户分不清哪条是干嘛的。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/selBar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginTop="10dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginBottom="12dp"
+    android:background="@drawable/bg_bar"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="6dp"
+    android:visibility="gone" />

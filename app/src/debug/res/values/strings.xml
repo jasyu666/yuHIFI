@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ★★ 内部版（assembleDebug）专用的资源覆盖。
+
+  AGP 会把 src/debug/res 叠加在 src/main/res 之上，只有 debug 变体吃得到它，
+  release 变体完全看不到 —— 所以这一条**不会**影响正式包。
+
+  为什么要分开两个名字：
+    手机上同时装着内部版和正式版时，两个图标长得一模一样、名字也一模一样，
+    点错一个就要等到出问题才发现。加了 Dev 之后一眼能分。
+
+  ★ 正式版的名字在 app/src/main/res/values/strings.xml 的 app_name = "yuHIFI"。
+  ★ 改这里之前先确认没有第二个覆盖点（全工程只有这两处定义 app_name）。
+-->
+<resources>
+    <string name="app_name" translatable="false">yuHIFI Dev</string>
+</resources>

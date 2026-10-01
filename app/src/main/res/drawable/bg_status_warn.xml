@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  解码器状态条 —— 未连接 / 连接中（橙）。
+
+  ★ 和 bg_card_clickable 同一套写法：涟漪必须用 mask 裁成圆角，
+    否则水波纹会从 14dp 圆角外面溢出来。
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?android:attr/colorControlHighlight">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/white" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/warn_soft" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</ripple>

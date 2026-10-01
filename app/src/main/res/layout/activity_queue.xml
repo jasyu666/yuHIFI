@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootQueue"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
+
+        <ImageButton
+            android:id="@+id/btnQueueBack"
+            style="@style/Btn.Icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/action_back"
+            android:src="@drawable/ic_back" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- 多选时这里会被换成「已选 N 项」，所以需要一个 id -->
+            <TextView
+                android:id="@+id/tvQueueHeading"
+                style="@style/Text.Screen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/action_queue" />
+
+            <TextView
+                android:id="@+id/tvQueueCount"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <!--
+          文字按钮，跟同一排的「导入 / 新建 / 设置」一个样式。
+
+          ★ 之前这里用的是描边图标。浅色顶栏上细描边的方框勾几乎看不见 ——
+            不是对比度不够，是那套图标的线宽是照着"画在深色底上"定的。
+            整排按钮里混一个不同材质的东西也显得突兀。
+        -->
+        <Button
+            android:id="@+id/btnSelect"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_select" />
+
+        <Button
+            android:id="@+id/btnSelectAll"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_select_all"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btnClearUpcoming"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_clear_upcoming" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvQueueHint"
+        style="@style/Text.Meta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
+        android:text="@string/hint_queue_edit" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvQueue"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_card_flat"
+            android:clipToPadding="false"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:scrollbars="none" />
+    </FrameLayout>
+
+    <!-- 多选时的操作栏。队列页本来就显示着队列，没有迷你播放条要让位 -->
+    <include layout="@layout/view_selection_bar" />
+</LinearLayout>

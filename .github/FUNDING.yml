@@ -1,0 +1,22 @@
+# 赞助按钮的配置。
+#
+# ★★ 三条硬规矩，少一条按钮就不出现：
+#
+#   1. 这个文件必须在 .github/ 下，而且必须在**默认分支**上。
+#   2. GitHub Settings → General → Features → **Sponsorships 那个开关默认是关的**，
+#      要手动打开（Set up sponsor button / Override funding links）。
+#      只提交这个文件、不去设置里开，页面上什么都不会变。
+#   3. custom 的值是**数组**时，URL 里只要含 `:` 就必须用引号包起来 ——
+#      `https://` 天然含 `:`，所以下面这对引号不是可选的，去掉就解析失败。
+#
+# ★ 爱发电**不在** GitHub 的内置赞助平台名单里（内置的只有 GitHub Sponsors、
+#   Ko-fi、Patreon、Buy Me a Coffee、Liberapay、Open Collective、Polar、
+#   thanks.dev、IssueHunt、Tidelift、LFX）。所以只能走 custom，别去写
+#   `afdian:` 之类的字段 —— 那不是合法键名，GitHub 会静默忽略整行。
+#
+# ★ custom 最多 4 条。
+#
+# ★ GitHub 对赞助链接的用途有明文限制：只能用于让项目接受社区的**直接资金支持**，
+#   不能挪作他用（打广告、政治/社区/慈善团体募捐）。个人开发者接受支持属于允许的用法。
+
+custom: ["https://ifdian.net/a/who2233"]

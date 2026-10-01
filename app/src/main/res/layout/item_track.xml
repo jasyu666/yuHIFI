@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  列表中的一首曲目。
+
+  层次靠**字号 + 颜色**拉开，不靠分隔线堆叠：
+    曲名（primary 15sp）→ 艺术家·专辑（meta 11sp）
+  右侧规格徽章是恒定宽度区，让标题的右边界整齐。
+
+  封面 52dp 圆形：有内嵌图就显示图，没有就是程序画的黑胶 —— 两者都是圆的，
+  列表看起来才是齐的。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="10dp">
+
+    <ImageView
+        android:id="@+id/ivCheck"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:layout_marginEnd="6dp"
+        android:contentDescription="@string/cd_select"
+        android:src="@drawable/ic_check_off"
+        android:visibility="gone" />
+
+    <!--
+      拖动把手。**默认隐藏**：只有歌单这类可以排序的列表才显示它。
+      单独做一个 item_track_drag.xml 也行，但两份除了这一行完全一样 ——
+      同一样式抄两遍是风格散掉的起点，所以这里用一个 gone 的图标解决。
+    -->
+    <ImageView
+        android:id="@+id/ivDrag"
+        android:layout_width="26dp"
+        android:layout_height="42dp"
+        android:layout_marginEnd="2dp"
+        android:contentDescription="@string/cd_drag"
+        android:paddingStart="6dp"
+        android:paddingEnd="4dp"
+        android:src="@drawable/ic_drag"
+        android:tint="@color/text_secondary"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/ivCover"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:contentDescription="@string/cd_cover"
+        android:scaleType="fitCenter" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            style="@style/Text.Title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/tvSubtitle"
+            style="@style/Text.Meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:ellipsize="end"
+            android:maxLines="1" />
+    </LinearLayout>
+
+    <!--
+      规格徽章（44.1k / 16bit）。这是本播放器最有信息量的一列 ——
+      用户扫一眼就知道这首会不会走 bit-perfect 直通。
+    -->
+    <TextView
+        android:id="@+id/tvSpec"
+        style="@style/Badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp" />
+</LinearLayout>

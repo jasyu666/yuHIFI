@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  音乐库 —— 主界面。
+
+  版面结构（三段）：
+    顶栏      标题 + 曲目数 + 三个入口
+    内容区    一张大卡片托住列表（不是每行一张卡 —— 那样太碎）
+    迷你条    常驻底部，跟随播放状态显隐
+
+  留白统一 16dp，卡片之间 12dp。间距只有这两档，界面才不会显得随意。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLibrary"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <!-- ══ 顶栏 ══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="10dp">
+
+        <!-- 音乐库不再是 launcher，是从首页进来的二级页，所以要有明确的返回键。
+             系统返回键也能用，但页面上有个可见的出口更让人放心 -->
+        <ImageButton
+            android:id="@+id/btnLibBack"
+            style="@style/Btn.Icon"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:contentDescription="@string/action_back"
+            android:src="@drawable/ic_back" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Text.Screen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_library" />
+
+            <TextView
+                android:id="@+id/tvLibCount"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="" />
+        </LinearLayout>
+
+        <!--
+          多选入口。和「全选」占同一个位置、互相切换显隐 ——
+          顶栏本来就不宽（音乐库那边已经有导入/新建/设置三个按钮），
+          再塞一个常驻按钮会把标题挤没。
+        -->
+        <!--
+          文字按钮，跟同一排的「导入 / 新建 / 设置」一个样式。
+
+          ★ 之前这里用的是描边图标。浅色顶栏上细描边的方框勾几乎看不见 ——
+            不是对比度不够，是那套图标的线宽是照着"画在深色底上"定的。
+            整排按钮里混一个不同材质的东西也显得突兀。
+        -->
+        <Button
+            android:id="@+id/btnSelect"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_select" />
+
+        <Button
+            android:id="@+id/btnSelectAll"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_select_all"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btnImport"
+            style="@style/Btn.Outline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_import" />
+
+        <Button
+            android:id="@+id/btnNewFolder"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_new_folder" />
+
+        <Button
+            android:id="@+id/btnSettings"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_settings" />
+    </LinearLayout>
+
+    <!-- 面包屑。在子目录里才出现，点它退上一级 -->
+    <TextView
+        android:id="@+id/tvBreadcrumb"
+        style="@style/Text.Meta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_card"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:textColor="@color/brand"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <!-- 设备未就绪的提示。用语义色而不是硬编码红，两边主题都看得清 -->
+    <TextView
+        android:id="@+id/tvDeviceHint"
+        style="@style/Text.Meta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/bg_badge_warn"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:text="@string/hint_no_device"
+        android:textColor="@color/warn"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <!-- 扫描进度 / 导入结果，一行字，不抢戏 -->
+    <TextView
+        android:id="@+id/tvScanHint"
+        style="@style/Text.Meta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
+        android:text="" />
+
+    <!-- ══ 内容区：一张卡片托住整个列表 ══ -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvTracks"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_card_flat"
+            android:clipToPadding="false"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:scrollbars="none" />
+
+        <TextView
+            android:id="@+id/tvEmpty"
+            style="@style/Text.Body"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_card_flat"
+            android:gravity="center"
+            android:lineSpacingExtra="6dp"
+            android:padding="32dp"
+            android:text="@string/empty_library"
+            android:visibility="gone" />
+
+        <!-- 扫描/导入进行中的浮层，避免空列表时用户以为卡住 -->
+        <ProgressBar
+            android:id="@+id/pbScan"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- 迷你播放条。和首页、曲目列表页共用同一份 -->
+    <include layout="@layout/view_mini_bar" />
+    <!-- 多选时的操作栏。和上面的迷你播放条互斥，两者不会同时出现 -->
+    <include layout="@layout/view_selection_bar" />
+
+
+</LinearLayout>

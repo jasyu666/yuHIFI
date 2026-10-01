@@ -1,0 +1,58 @@
+# ── 构建产物 ──
+build/
+.gradle/
+.kotlin/
+.cxx/
+**/.cxx/
+
+# ── 本机配置（含 SDK 绝对路径，换台机器就不对）──
+local.properties
+
+# ── 归档的 APK ──
+# 33 个约 295MB。版本控制该管的是源码，不是二进制 ——
+# 而且它们每个都 9MB，进了仓库会永久留在历史里，clone 一次拖一辈子。
+# APK 的版本归档请继续用文件命名（HiFiProbe-v0.1-pXX-debug.apk）管理。
+*.apk
+
+# ── IDE ──
+.idea/
+*.iml
+
+# ── 系统 ──
+.DS_Store
+Thumbs.db
+
+# ── FFmpeg 源码树：整棵不进版本库 ──
+#
+# ★★ 这棵树是**未经修改的上游原版**，8500 多个文件。它在仓库里会：
+#    · 把 GitHub 的语言统计压成「C 97%」，看不出这是个 Android 项目
+#    · 让每次 clone 都多拉一份跟本项目无关的代码
+#  要重编 FFmpeg 时自己下载 ffmpeg-7.1.tar.xz 解到这里就行
+#  （流程见 third_party/_ff/rebuild_with_wma.sh 的注释）。
+#
+# ★★★ **绝对不要**顺手忽略下面这两个 —— 它们是构建必需的：
+#   · third_party/_ff/out/arm64-v8a/
+#       app/src/main/cpp/CMakeLists.txt:63 链接时用的就是它（头文件 + .so），
+#       那是「FFmpeg 的安装产物」。缺了它 CMake 直接 FATAL_ERROR。
+#   · app/src/main/jniLibs/arm64-v8a/
+#       运行期那份，**进 APK 的就是它**。缺了它 App 一启动就崩。
+third_party/_ff/ffmpeg-7.1/
+
+# 上游源码 tarball。11MB 的二进制，内容等同于官方下载地址那一个 ——
+# 留个地址比留个文件好，而且它**未修改**，重建时按 URL 取就行。
+third_party/_ff/*.tar.xz
+third_party/_ff/*.tar.bz2
+third_party/_ff/*.tar.gz
+
+# ── 重编时留的备份（本地保险，不是源码）──
+third_party/_ff/_*_backup_*/
+
+# ── 本机状态（不是源码）──
+# tools/ 下的上传工具跑一次就会留下这些：
+#   __pycache__/          测试用 importlib 载入内核时生成的字节码
+#   .upload-host.txt      上次连的那台手机的地址，换台电脑/换个网络就不对
+#   .upload-ui.txt        上次关窗口时的尺寸和位置，跟着屏幕走
+__pycache__/
+*__pycache__/
+tools/.upload-host.txt
+tools/.upload-ui.txt

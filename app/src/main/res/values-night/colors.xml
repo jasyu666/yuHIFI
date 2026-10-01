@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  语义色板 —— **深色**。键名与 values/colors.xml 严格一一对应。
+
+  音乐播放器绝大多数时候在暗环境里用，所以深色是默认体验。
+  底色带着一点蓝（#0B0F14 而不是纯黑）：纯黑配 OLED 会有拖影，
+  而且和黑胶封面的黑色糊在一起分不出边界。
+-->
+<resources>
+    <color name="bg">#FF0B0F14</color>
+    <color name="surface">#FF151B23</color>
+    <color name="surface_alt">#FF1E2733</color>
+    <color name="border">#FF26303C</color>
+
+    <color name="text_primary">#FFEAF0F6</color>
+    <color name="text_secondary">#FF94A5B8</color>
+    <color name="text_tertiary">#FF6B7D91</color>
+
+    <!-- 深色下主色要提亮，否则 #12796B 在暗底上发闷、对比度不够 -->
+    <color name="brand">#FF4FB3A1</color>
+    <color name="on_brand">#FF06231E</color>
+    <color name="brand_soft">#264FB3A1</color>
+
+    <color name="ok">#FF4ADE80</color>
+    <color name="ok_soft">#264ADE80</color>
+    <color name="warn">#FFF0A03C</color>
+    <color name="warn_soft">#26F0A03C</color>
+    <color name="error">#FFEF5350</color>
+    <color name="error_soft">#26EF5350</color>
+</resources>

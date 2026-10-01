@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  解码器状态条 —— 已连接（绿）。写法同 bg_status_warn。
+
+  已连接时这一行**不可点**（没有可做的事），所以涟漪平时不会出现；
+  留着是为了状态切换的那一帧不会有背景跳变。
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?android:attr/colorControlHighlight">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/white" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ok_soft" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</ripple>

@@ -1,0 +1,22 @@
+# 一律不做行尾转换。
+#
+# 这个工程里混着 LF 和 CRLF（Kotlin、C++ 源码、shell 脚本、Android 资源），
+# 让 git 自动转换的话，检出时会"凭空"改掉一批文件的字节 ——
+# 而我们要的恰恰是"一个字节都别动"，否则 git status 永远不干净，
+# 真正被外部改动的那几个文件反而被噪声淹没。
+* -text
+
+# ── 语言统计：把随仓库分发的第三方资源标记成 vendored ──
+#
+# ★ 不加这两行的后果：GitHub 仓库页顶上那行语言统计会把
+#   libusb 的 C 源码算成"本项目的语言"，于是 yuHIFI 看起来像个 C 项目。
+#   linguist 本来就会跳过仓库里**没有**的路径，但 libusb 源码是随仓库
+#   分发的（静态链接，LGPL 要求源码可得），所以得显式标记。
+#
+# ★ `linguist-vendored` 只影响统计和 diff 折叠，不影响文件本身。
+# ★ 不要给 app/src/** 加这个 —— 那些是本项目的代码，要算进去。
+third_party/libusb-1.0.27/** linguist-vendored
+third_party/_ff/** linguist-vendored
+
+# 上传工具是 Python，算进去没意义，本项目的主体是 Kotlin + C++。
+tools/** linguist-vendored

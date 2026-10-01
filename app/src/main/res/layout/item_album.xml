@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  一张专辑。
+
+  封面尺寸由代码算好塞进来（见 AlbumsActivity.cellPx）—— 写死 dp 的话，
+  在 2 列网格里不是留白太多就是挤掉边距，不同屏宽下总有一边不对。
+
+  留白统一 16dp，卡片之间 12dp。间距只有这两档，界面才不会显得随意。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="vertical"
+    android:padding="6dp">
+
+    <!-- 封面外面套一层 FrameLayout，只为了把勾选圈叠在右上角。
+         专辑卡是竖向排的，行首没有位置放圈 -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/ivAlbumCover"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/cd_cover"
+            android:scaleType="fitCenter" />
+
+        <ImageView
+            android:id="@+id/ivCheck"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="6dp"
+            android:contentDescription="@string/cd_select"
+            android:src="@drawable/ic_check_off"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvAlbumName"
+        style="@style/Text.Title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/tvAlbumMeta"
+        style="@style/Text.Meta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:maxLines="1" />
+</LinearLayout>

@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  门户首页 —— 启动页。
+
+  ★ 四张卡片，但**不是四张一样大的**：两张大卡（所有歌曲 / 音乐库）走横向
+    布局、两个小卡（播放列表 / 专辑）并排走纵向布局。
+    四张一样大的话，视线没有落点，用户得逐个读文字才知道先看哪个。
+    大小分出主次，扫一眼就知道最常用的两个在哪。
+
+  ★ 卡片用 @drawable/bg_card_clickable（带遮罩的涟漪）而不是给 LinearLayout
+    加 foreground —— 后者是方角，水波纹会从 14dp 圆角的四个角溢出来。
+
+  间距只有两档：卡片之间 12dp，卡片内边距 16dp。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootHome"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <!-- ══ 顶栏 ══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="4dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Text.Screen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_home" />
+
+            <TextView
+                android:id="@+id/tvHomeStat"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnHomeSettings"
+            style="@style/Btn.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_settings" />
+    </LinearLayout>
+
+    <!--
+      ══ 解码器状态条 ══
+
+      ★ 放在 ScrollView **外面**，是刻意的：它只在没接上解码器时醒目，
+        而那正是用户最需要看到它的时候。跟着卡片滚走的话就白做了。
+
+      ★ 四种样子由代码切换（见 HomeActivity.renderDevice）：
+          未连接  橙 · 未连接 USB 解码器        点这里连接
+          连接中  橙 · 正在连接…                （无动作）
+          失败    红 · 连接失败：<原因>          重试
+          已连接  绿 · 已连接 MOONDROP Dawn Pro  （不可点，常驻）
+
+      ★ 底是 ripple（bg_status_*），所以点击有水波纹；已连接时置
+        clickable=false，那会儿没有可做的事，留着涟漪会让人以为能点。
+    -->
+    <LinearLayout
+        android:id="@+id/barDevice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/bg_status_warn"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="12dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/ivDevice"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:contentDescription="@string/cd_device_state"
+            android:src="@drawable/ic_usb"
+            android:tint="@color/warn" />
+
+        <TextView
+            android:id="@+id/tvDevice"
+            style="@style/Text.Body"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/tvDeviceAction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/action_connect"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- ══ 四张卡片 ══ -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp">
+
+            <!-- 大卡一：所有歌曲 -->
+            <LinearLayout
+                android:id="@+id/cardAllSongs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card_clickable"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_icon_soft"
+                    android:contentDescription="@string/nav_all_songs"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_music"
+                    android:tint="@color/brand" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/Text.Title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/nav_all_songs"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/tvAllSongsCount"
+                        style="@style/Text.Meta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@string/cd_enter"
+                    android:src="@drawable/ic_chevron"
+                    android:tint="@color/text_secondary" />
+            </LinearLayout>
+
+            <!-- 大卡二：音乐库（文件夹浏览） -->
+            <LinearLayout
+                android:id="@+id/cardLibrary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card_clickable"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_icon_soft"
+                    android:contentDescription="@string/nav_library"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_folder"
+                    android:tint="@color/brand" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/Text.Title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/nav_library"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/tvLibraryCount"
+                        style="@style/Text.Meta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@string/cd_enter"
+                    android:src="@drawable/ic_chevron"
+                    android:tint="@color/text_secondary" />
+            </LinearLayout>
+
+            <!-- 两张小卡：播放列表 / 专辑 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/cardPlaylists"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_card_clickable"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:minHeight="132dp"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_soft"
+                        android:contentDescription="@string/nav_playlists"
+                        android:padding="9dp"
+                        android:src="@drawable/ic_playlist"
+                        android:tint="@color/brand" />
+
+                    <TextView
+                        style="@style/Text.Title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/nav_playlists" />
+
+                    <TextView
+                        android:id="@+id/tvPlaylistCount"
+                        style="@style/Text.Meta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:text="" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardAlbums"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_card_clickable"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:minHeight="132dp"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_soft"
+                        android:contentDescription="@string/nav_albums"
+                        android:padding="9dp"
+                        android:src="@drawable/ic_album"
+                        android:tint="@color/brand" />
+
+                    <TextView
+                        style="@style/Text.Title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/nav_albums" />
+
+                    <TextView
+                        android:id="@+id/tvAlbumCount"
+                        style="@style/Text.Meta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:text="" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 迷你播放条。抽在 view_mini_bar.xml 里，三处页面共用同一份 -->
+    <include layout="@layout/view_mini_bar" />
+</LinearLayout>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  已选中的勾选圈。实心圆 + **镂空**的对勾。
+
+  ★★ 为什么对勾是镂空，而不是画一条白勾：
+
+     渲染时用的是 `imageTintList`（见 LibraryActivity / PlaylistsActivity 等），
+     它按 `SRC_IN` 把 drawable 里**所有不透明像素统一染成 tint 色**。
+     原来圆和对勾都是白的 —— 于是被染成**同一个绿色**，
+     对勾彻底看不见，选中态实际只剩一个纯色实心圆。
+     （半选那个横线同理，会退化成和全选一模一样。）
+
+  ★ 现在改成一条 path 配 `fillType="evenOdd"`：对勾围出的区域被挖掉，
+    透出背景色。深色背景上就是「绿圆 + 深色勾」，
+    和原来「绿圆 + 白勾」的对比效果一样，而且**单一 tint 色吃不掉它**。
+
+  ★ 对勾的轮廓，是把原来那条折线 `M7.6,12.4 L10.6,15.4 L16.4,9`
+    按 strokeWidth 1.9 手工外扩出来的（内角走了 miter，外角连成直线近似圆角）。
+    在 26dp 的尺寸上看不出区别。
+
+  ★ 整个对勾都落在 r=9 的圆内（最远一点离圆心 5.62），所以是纯粹的"挖洞"，
+    不会把圆的边缘啃掉。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:fillType="evenOdd"
+        android:pathData="M12,3 A9,9 0 1 1 11.99,3 Z M6.93,13.07 L9.93,16.07 L11.3,16.04 L17.1,9.64 L15.7,8.36 L10.57,14.09 L8.27,11.73 Z" />
+</vector>

@@ -1,0 +1,14 @@
+prefix=/c/Users/123/Desktop/hifiprobe/third_party/_ff/out/arm64-v8a
+exec_prefix=${prefix}
+libdir=/c/Users/123/Desktop/hifiprobe/third_party/_ff/out/arm64-v8a/lib
+includedir=/c/Users/123/Desktop/hifiprobe/third_party/_ff/out/arm64-v8a/include
+
+Name: libavformat
+Description: FFmpeg container format library
+Version: 61.7.100
+Requires: 
+Requires.private: libavcodec >= 61.19.100, libswresample >= 5.3.100, libavutil >= 59.39.100
+Conflicts:
+Libs: -L${libdir}  -lavformat 
+Libs.private: -lm -latomic
+Cflags: -I${includedir}

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  浅色主题。
+
+  ★ 关键是**把语义色映射进 Material3 的颜色角色**。不这么做的话，
+    默认 Button / CheckBox / AlertDialog / SeekBar 全都用 M3 默认配色
+    （那套紫），于是界面上一半是自定义色、一半是框架默认色 ——
+    「看着没设计过」就是这么来的。
+
+    映射一次，之后所有标准控件自动跟随，不必逐个改。
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.YuHIFI" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 主色 -->
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorOnPrimary">@color/on_brand</item>
+        <item name="colorPrimaryContainer">@color/brand_soft</item>
+        <item name="colorOnPrimaryContainer">@color/brand</item>
+        <!--
+          ★ 这两个必须显式映射。
+            Material3 的 TonalButton / FilledTonalButton / Chip 用的是
+            secondaryContainer，不映射就会**回落到框架默认的淡紫** ——
+            实拍截图里那三个传输按钮就是淡紫的，和整套配色完全不搭。
+            凡是"某个控件颜色不对"，先回这里看是哪个槽没接。
+        -->
+        <item name="colorSecondary">@color/brand</item>
+        <item name="colorOnSecondary">@color/on_brand</item>
+        <item name="colorSecondaryContainer">@color/surface_alt</item>
+        <item name="colorOnSecondaryContainer">@color/text_primary</item>
+        <item name="colorTertiaryContainer">@color/surface_alt</item>
+        <item name="colorOnTertiaryContainer">@color/text_primary</item>
+        <!-- 图标按钮的默认色，不映射会跟着 M3 默认色走 -->
+        <item name="colorControlNormal">@color/text_secondary</item>
+
+        <!-- 面 -->
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/surface_alt</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/border</item>
+        <item name="colorOutlineVariant">@color/border</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+
+        <!-- 语义 -->
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">#FFFFFFFF</item>
+
+        <!-- 窗口 -->
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+
+        <!-- 对话框跟随圆角与配色，别用系统默认的方角 + 紫按钮 -->
+        <item name="materialAlertDialogTheme">@style/Theme.YuHIFI.Dialog</item>
+    </style>
+
+    <style name="Theme.YuHIFI.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/surface_alt</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorSecondaryContainer">@color/surface_alt</item>
+        <item name="colorOnSecondaryContainer">@color/text_primary</item>
+    </style>
+</resources>

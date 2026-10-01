@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  空封面占位 —— 没有歌曲在播放时，播放条/播放页左侧那个圆。
+
+  ★ 做成**圆**而不是方块：真封面一律走 CoverLoader，出来都是圆形裁切
+    （VinylArt.circleCrop）。占位要是方的，这一行会突然换个形状，
+    看着像加载失败而不是"本来就没有"。
+
+  ★ 用 surface_alt 而不是写死的灰：深浅两套配色里它都是"比底深一档的面"，
+    换配色时不必回来改这里。全部按用途命名色板，是 colors.xml 定的规矩。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/surface_alt" />
+</shape>

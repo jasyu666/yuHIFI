@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 简易启动图标：深色底 + 蓝色声波柱 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#0B0F14"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <path
+        android:fillColor="#7FD1FF"
+        android:pathData="M26,46h6v16h-6z" />
+    <path
+        android:fillColor="#7FD1FF"
+        android:pathData="M36,36h6v36h-6z" />
+    <path
+        android:fillColor="#7FD1FF"
+        android:pathData="M46,26h6v56h-6z" />
+    <path
+        android:fillColor="#7FD1FF"
+        android:pathData="M56,34h6v40h-6z" />
+    <path
+        android:fillColor="#7FD1FF"
+        android:pathData="M66,42h6v24h-6z" />
+    <path
+        android:fillColor="#7FD1FF"
+        android:pathData="M76,48h6v12h-6z" />
+
+</vector>

@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  正在播放 · 横屏。
+
+  ★★ 这个布局是「正在播放页允许旋转、其他页面一律锁竖屏」的另一半 ——
+     见 AndroidManifest 里那段说明。系统按 `-land` 限定符自动挑这一份，
+     Activity **会被重建**（这一页没有 configChanges），所以：
+       · PlayerSession 是进程级的，播放完全不受影响
+       · showLyrics 从 Settings 重读
+       · 封面从 CoverLoader 的 LRU 拿，不必重新解码
+     代价只是闪一下 + 歌词的滚动位置会回到顶部。
+
+  ★★ **所有 id 必须和竖屏那份一一对应** —— Activity 是同一套 findViewById，
+     少一个就是 lateinit 崩溃。竖屏有而横屏用不上的（两个标签、源详情）
+     在这里用 visibility="gone" 占位，照样能被找到。
+
+  版面：左边封面 + 控制，右边歌词。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootNowPlaying"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="horizontal">
+
+    <!-- ══ 左：封面 + 控制 ══ -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="14dp">
+
+        <!--
+          封面放进一个带权重的容器里居中 —— 横屏高度各家设备差别很大，
+          写死一个高度在矮屏上会把下面的控制挤出去。
+        -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <ImageView
+                android:id="@+id/ivBigCover"
+                android:layout_width="150dp"
+                android:layout_height="150dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/cd_cover" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tvNpTitle"
+            style="@style/Text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvNpArtist"
+            style="@style/Text.Meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textSize="12sp" />
+
+        <!--
+          bit-perfect 徽章。横屏也不省 —— 它是这页的差异化信息，
+          而且横屏正是"想认真听"时才摆的姿势。
+        -->
+        <TextView
+            android:id="@+id/tvBadge"
+            style="@style/Badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:paddingStart="12dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="3dp"
+            android:textSize="11sp" />
+
+        <SeekBar
+            android:id="@+id/seekNp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvPos"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tvDur"
+                style="@style/Text.Meta"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnNpPrev"
+                style="@style/Btn.Icon"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:contentDescription="@string/cd_prev"
+                android:src="@drawable/ic_prev" />
+
+            <ImageButton
+                android:id="@+id/btnNpPlay"
+                style="@style/Btn.Icon"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1.6"
+                android:contentDescription="@string/cd_play"
+                android:src="@drawable/ic_play" />
+
+            <ImageButton
+                android:id="@+id/btnNpNext"
+                style="@style/Btn.Icon"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:contentDescription="@string/cd_next"
+                android:src="@drawable/ic_next" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnNpShuffle"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/shuffle_off" />
+
+            <Button
+                android:id="@+id/btnNpRepeat"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/repeat_off" />
+
+            <Button
+                android:id="@+id/btnNpQueue"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/label_queue" />
+
+            <!-- 横屏下写「竖屏」—— 文案说的是按下去会发生什么 -->
+            <Button
+                android:id="@+id/btnOrientation"
+                style="@style/Btn.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/action_portrait" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ══ 右：歌词（常驻） ══ -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="10dp">
+
+        <!--
+          ★ 上下各留 120dp：让第一句和最后一句也能滚到视野中间。
+            横屏比竖屏高，这个值要比竖屏那份大一些。
+        -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvLyrics"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingTop="120dp"
+            android:paddingBottom="120dp"
+            android:scrollbars="none" />
+
+        <!--
+          ★ 用 weight=1 + gravity=center 而不是 wrap_content：
+            没有歌词时它会**占满整个右栏并居中**。wrap_content 的话那句话
+            会贴在顶上，配上一整片空白，看着像布局塌了。
+            （和 rvLyrics 互斥，同一时刻只有一个 VISIBLE，所以共用一个位置。）
+        -->
+        <TextView
+            android:id="@+id/tvLyricsEmpty"
+            style="@style/Text.Meta"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/lyrics_none"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!--
+      ══ 竖屏有、横屏用不上的控件 ══
+
+      ★★ 必须**存在**：Activity 是同一套 findViewById，少一个就是
+         UninitializedPropertyAccessException。放在这里 visibility=gone，
+         不占位置也不显示。applyTab() 会按 showLyrics 再摆一次它们的显隐，
+         而横屏恒为"看歌词"，所以它们一直是 GONE。
+    -->
+    <TextView
+        android:id="@+id/tabSource"
+        style="@style/Text.Section"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_source"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tabLyrics"
+        style="@style/Text.Section"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_lyrics"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tvNpDetail"
+        style="@style/Text.Meta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  分组小标题。字母索引的 A/B/C 和「我的歌单」这类区块标题都是它。
+
+  ★ 单独一个布局而不是在条目布局里塞一个 viewType 的 TextView：
+    RecyclerView 的复用是按 viewType 分的，两种结构混用同一个 ViewHolder
+    会让复用的 itemView 类型错乱 —— 这是很难查的一类崩溃。
+-->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tvSection"
+    style="@style/Text.Section"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="16dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="4dp" />

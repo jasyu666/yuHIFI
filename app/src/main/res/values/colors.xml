@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  语义色板 —— **浅色**（默认）。
+
+  ★ 全部按「用途」命名，不按颜色命名。`text_secondary` 而不是 `gray_600`：
+    这样换配色只要改这一个文件，而不用去每个布局里找哪个灰该换成哪个灰。
+    深色版在同名的 values-night/colors.xml 里，键名一一对应。
+
+  风格取向：干净的白卡片 + 墨绿主色 + 大留白。卡片之间有明确的边界，
+  信息按「标题 / 副标题 / 元信息」三级走，不要靠字号硬撑层次。
+-->
+<resources>
+    <!-- 底与面 -->
+    <color name="bg">#FFF4F6F9</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_alt">#FFEAEFF5</color>
+    <color name="border">#FFDDE4EC</color>
+
+    <!--
+      文字三级。
+
+      ★ 第三级在浅底上做到 4.5:1 的话，会和第二级几乎分不出来（层次塌掉），
+        所以停在 3.7:1 —— 比原来的 2.7:1 明显清楚，又还留得住"最弱一级"的身份。
+        11sp 的元信息（专辑名、规格、路径）全用这一档。
+    -->
+    <!-- 文字三级 -->
+    <color name="text_primary">#FF17202A</color>
+    <color name="text_secondary">#FF5A6B7C</color>
+    <color name="text_tertiary">#FF73818E</color>
+
+    <!-- 主色 -->
+    <color name="brand">#FF12796B</color>
+    <color name="on_brand">#FFFFFFFF</color>
+    <color name="brand_soft">#1A12796B</color>
+
+    <!--
+      语义色。三个各司其职，**不要混用**：
+        ok    直通 / bit-perfect —— 这是本播放器最重要的一个状态
+        warn  重采样 / 缓冲水位偏低
+        error 失败 / 删除
+    -->
+    <color name="ok">#FF1B8F5A</color>
+    <color name="ok_soft">#1A1B8F5A</color>
+    <color name="warn">#FFB86A00</color>
+    <color name="warn_soft">#1AB86A00</color>
+    <color name="error">#FFC0392B</color>
+    <color name="error_soft">#1AC0392B</color>
+</resources>
