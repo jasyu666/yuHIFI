@@ -265,7 +265,7 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
         tvTlEmpty.text = when (source) {
             SOURCE_ALL -> getString(R.string.empty_all_songs)
             SOURCE_ALBUM -> "这张专辑里没有可播放的曲目"
-            else -> "这个歌单还是空的\n\n到曲目上长按，选「加到歌单…」"
+            else -> "该歌单尚为空\n\n在曲目上长按，选择「添加至歌单…」"
         }
     }
 
@@ -466,7 +466,7 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
         add(SelectionBar.Action(getString(R.string.action_play_selected)) {
             val list = selectedTracks()
             if (list.isEmpty()) {
-                toast("这里面没有可播放的曲目")
+                toast("此处无可播放的曲目")
             } else {
                 PlayerSession.setQueue(list, 0)
                 startActivity(Intent(this@TrackListActivity, NowPlayingActivity::class.java))
@@ -498,8 +498,8 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
     private fun trackMenu(t: Track) {
         val items = buildList {
             add("下一首播放")
-            add("加到队尾")
-            add("加到歌单…")
+            add("添加至播放队列")
+            add("添加至歌单…")
             if (editable) add("从这个歌单移除")
         }
         AlertDialog.Builder(this)
@@ -508,11 +508,11 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
                 when (which) {
                     0 -> {
                         PlayerSession.playNextInQueue(t)
-                        toast("已加入：下一首播放")
+                        toast("已添加：下一首播放")
                     }
                     1 -> {
                         PlayerSession.addToQueue(listOf(t))
-                        toast("已加到队尾")
+                        toast("已添加至播放队列")
                     }
                     2 -> addToPlaylist(listOf(t))
                     3 -> {
@@ -535,15 +535,15 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
         if (lists.isEmpty()) {
             val input = EditText(this).apply { hint = "歌单名" }
             AlertDialog.Builder(this)
-                .setTitle("还没有歌单，先建一个")
+                .setTitle("尚无歌单，请先创建")
                 .setView(input)
-                .setPositiveButton("创建并加入") { _, _ ->
+                .setPositiveButton("创建并添加") { _, _ ->
                     val p = Playlists.create(input.text.toString())
                     if (p == null) {
-                        toast("名字为空或已存在")
+                        toast("名称为空或已存在")
                     } else {
                         val n = Playlists.add(p.id, picked)
-                        toast("「${p.name}」已加入 $n 首")
+                        toast("「${p.name}」已添加 $n 首")
                     }
                 }
                 .setNegativeButton("取消", null)
@@ -552,11 +552,11 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
         }
         val names = lists.map { "${it.name}（${it.size} 首）" }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("加到哪个歌单")
+            .setTitle("添加至哪个歌单")
             .setItems(names) { _, which ->
                 val n = Playlists.add(lists[which].id, picked)
-                toast(if (n == 0) "这些歌都已经在「${lists[which].name}」里了"
-                else "「${lists[which].name}」已加入 $n 首")
+                toast(if (n == 0) "这些曲目均已在「${lists[which].name}」中"
+                else "「${lists[which].name}」已添加 $n 首")
             }
             .show()
     }
@@ -577,14 +577,14 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
                                 if (Playlists.rename(id, input.text.toString())) {
                                     title = input.text.toString()
                                     tvTlTitle.text = input.text.toString()
-                                } else toast("名字为空或已存在")
+                                } else toast("名称为空或已存在")
                             }
                             .setNegativeButton("取消", null)
                             .show()
                     }
                     1 -> AlertDialog.Builder(this)
                         .setTitle("清空「${p.name}」？")
-                        .setMessage("只是把歌从歌单里去掉，不会删除音乐文件。")
+                        .setMessage("仅将曲目从歌单中移除，不会删除音乐文件。")
                         .setPositiveButton("清空") { _, _ ->
                             Playlists.clear(id)
                             load()
@@ -593,7 +593,7 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
                         .show()
                     2 -> AlertDialog.Builder(this)
                         .setTitle("删除歌单「${p.name}」？")
-                        .setMessage("只是删掉这份歌单，不会删除音乐文件。")
+                        .setMessage("仅删除这份歌单，不会删除音乐文件。")
                         .setPositiveButton("删除") { _, _ ->
                             Playlists.delete(id)
                             finish()

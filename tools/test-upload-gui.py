@@ -303,7 +303,9 @@ def main():
            str(app.items_skipped))
         ck("★ .jpg 静默跳过（不用报）",
            all("封面" not in p for p, _e in app.items_skipped))
-        ck("摘要提到了格式放不了", "格式放不了" in app.src_summary.get(),
+        # ★ 文案正式化之后这里从「格式放不了」变成了「格式不支持」——
+        #   改文案要顺手扫一遍测试里的断言（这个项目已经栽过好几次）
+        ck("摘要提到了格式不支持", "格式不支持" in app.src_summary.get(),
            app.src_summary.get())
 
         # ---- 6 重名预检 ----

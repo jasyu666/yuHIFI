@@ -110,7 +110,7 @@ class PlaylistsActivity : AppCompatActivity(), PlayerSession.Listener {
         val empty = playlists.isEmpty()
         tvPlaylistsEmpty.visibility = if (empty) View.VISIBLE else View.GONE
         tvPlSubtitle.text =
-            if (empty) "还没有歌单"
+            if (empty) "尚未创建歌单"
             else "${playlists.size} 个歌单 · 共 ${playlists.sumOf { it.size }} 首"
     }
 
@@ -193,7 +193,7 @@ class PlaylistsActivity : AppCompatActivity(), PlayerSession.Listener {
                 val n = sel.size
                 AlertDialog.Builder(this)
                     .setTitle("删除 $n 个歌单？")
-                    .setMessage("只是删掉这几份歌单，不会删除音乐文件。")
+                    .setMessage("仅删除这几份歌单，不会删除音乐文件。")
                     .setPositiveButton("删除") { _, _ ->
                         for (id in sel.snapshot()) Playlists.delete(id)
                         exitSelect()
@@ -228,7 +228,7 @@ class PlaylistsActivity : AppCompatActivity(), PlayerSession.Listener {
             .setView(input)
             .setPositiveButton("创建") { _, _ ->
                 val p = Playlists.create(input.text.toString())
-                if (p == null) toast("名字为空或已存在") else load()
+                if (p == null) toast("名称为空或已存在") else load()
             }
             .setNegativeButton("取消", null)
             .show()
@@ -253,7 +253,7 @@ class PlaylistsActivity : AppCompatActivity(), PlayerSession.Listener {
                             val list = Playlists.tracksOf(id)
                             runOnUiThread {
                                 if (list.isEmpty()) {
-                                    toast("歌单是空的")
+                                    toast("歌单为空")
                                 } else {
                                     PlayerSession.setQueue(list, 0)
                                     startActivity(Intent(this, NowPlayingActivity::class.java))
@@ -268,14 +268,14 @@ class PlaylistsActivity : AppCompatActivity(), PlayerSession.Listener {
                             .setView(input)
                             .setPositiveButton("确定") { _, _ ->
                                 if (Playlists.rename(p.id, input.text.toString())) load()
-                                else toast("名字为空或已存在")
+                                else toast("名称为空或已存在")
                             }
                             .setNegativeButton("取消", null)
                             .show()
                     }
                     2 -> AlertDialog.Builder(this)
                         .setTitle("删除歌单「${p.name}」？")
-                        .setMessage("只是删掉这份歌单，不会删除音乐文件。")
+                        .setMessage("仅删除这份歌单，不会删除音乐文件。")
                         .setPositiveButton("删除") { _, _ ->
                             Playlists.delete(p.id)
                             load()

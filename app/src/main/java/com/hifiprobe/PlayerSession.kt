@@ -569,7 +569,7 @@ object PlayerSession {
         val posMs = if (h != 0L) NativePlayer.nativeEngineInfo(h)[NativePlayer.EngineInfo.POSITION_MS] else 0L
         if (posMs > 3000 && state != State.IDLE) {
             NativePlayer.nativeSeekTo(h, 0)
-            postLog("回到本曲开头")
+            postLog("已回到本曲开头")
             postState()
         } else {
             queue.manualPrev()?.let { playLocked(it) }
@@ -714,7 +714,7 @@ object PlayerSession {
 
     /** 队列被编辑时如果关掉了随机，提示一次 —— 否则用户不知道发生了什么 */
     private fun noteShuffleOff(changed: Boolean) {
-        if (changed) postLog("编辑队列已自动关闭随机播放（开着随机时队列顺序没有意义）")
+        if (changed) postLog("编辑队列已自动关闭随机播放（随机播放开启时队列顺序无意义）。")
     }
 
     /**
@@ -924,7 +924,7 @@ object PlayerSession {
     private fun playCurrentLocked() {
         val t = queue.current()
         if (t == null) {
-            postLog("队列是空的")
+            postLog("队列为空")
             return
         }
         playLocked(t)
@@ -1028,7 +1028,7 @@ object PlayerSession {
 
         try {
             val ctx = appContext
-                ?: throw IllegalStateException("会话未初始化（缺 applicationContext）")
+                ?: throw IllegalStateException("会话未初始化（缺 applicationContext）。")
 
             /*
              * 两种来源都要能开：
@@ -1045,7 +1045,7 @@ object PlayerSession {
                 )
             } else {
                 ctx.contentResolver.openFileDescriptor(Uri.parse(track.uri), "r")
-            } ?: throw IllegalStateException("打不开这个文件")
+            } ?: throw IllegalStateException("无法打开该文件。")
 
             /*
              * detachFd 把 fd 的所有权整个交给原生层，此后由引擎负责 close。
@@ -1060,7 +1060,7 @@ object PlayerSession {
             val openMsg = NativePlayer.nativeOpenFile(h, fd)
             if (openMsg.isNotBlank()) postLog(openMsg.trim())
             if (!NativePlayer.nativeEngineReady(h)) {
-                throw IllegalStateException("引擎无法打开该文件")
+                throw IllegalStateException("引擎无法打开该文件。")
             }
             // 从这里起引擎里真的挂着一个会话了 —— 收尾时要打它的统计
             sessionOpen = true
@@ -1114,7 +1114,7 @@ object PlayerSession {
                 val msg = NativePlayer.nativeStartSystemPlayback(h)
                 if (msg.isNotBlank()) postLog(msg.trim())
                 if (!NativePlayer.nativeIsPlaying(h)) {
-                    throw IllegalStateException("系统音频未能启动（原因见上面一行）")
+                    throw IllegalStateException("系统音频未能启动（原因见上一行）。")
                 }
             } else {
                 /*
@@ -1129,13 +1129,13 @@ object PlayerSession {
                 val p = parsed!!
                 val rec = if (isDsd) {
                     p.selectForDsdPlayback(ch) ?: throw IllegalStateException(
-                        "这台设备没有 raw DSD 通道（AS_GENERAL.bmFormats 的 bit31 没置位）" +
-                                " —— DSD 文件无法原生播放"
+                        "该设备没有 raw DSD 通道（AS_GENERAL.bmFormats 的 bit31 未置位），" +
+                                "无法原生播放 DSD 文件。"
                     )
                 } else {
                     p.selectForPlayback(outRate, ch, srcBits, subframe)
                         ?: throw IllegalStateException(
-                            "设备没有任何 alt setting 能接受 ${outRate}Hz / ${ch}ch —— 该文件无法播放"
+                            "设备没有可接受 ${outRate}Hz / ${ch}ch 的 alt setting，该文件无法播放。"
                         )
                 }
 
@@ -1155,12 +1155,12 @@ object PlayerSession {
                 if (startMsg.isNotBlank()) postLog(startMsg.trim())
 
                 if (!NativePlayer.nativeIsPlaying(h)) {
-                    throw IllegalStateException("iso 传输未能启动")
+                    throw IllegalStateException("iso 传输未能启动。")
                 }
             }
 
             if (track.durationMs == 0L && durationMs > 0) {
-                postLog("时长: ${durationMs / 1000} 秒")
+                postLog("时长：${durationMs / 1000} 秒")
             }
         } catch (e: Exception) {
             lastError = "${e.javaClass.simpleName}: ${e.message}"
@@ -1206,7 +1206,7 @@ object PlayerSession {
             return
         }
         pendingPlay = track
-        lastError = "没有连接 USB 解码器"
+        lastError = "尚未连接 USB 解码器"
         postLog("⏳ 正在连接 USB 解码器…")
         setState(State.OPENING)
 
@@ -1236,7 +1236,7 @@ object PlayerSession {
      */
     fun notifyDeviceDetached() {
         lastError = "USB 解码器已断开"
-        postLog("⚠ USB 解码器已断开 —— 插回后重新点歌即可")
+        postLog("⚠ USB 解码器已断开，重新插入后点击曲目即可。")
         setState(State.IDLE)
     }
 
@@ -1329,7 +1329,7 @@ object PlayerSession {
                 // 也不至于让电池被悄悄耗干
                 acquire(6 * 60 * 60 * 1000L)
             }
-        }.onFailure { postLog("wakelock 申请失败: ${it.message}") }
+        }.onFailure { postLog("wakelock 申请失败：${it.message}") }
     }
 
     private fun releaseResources() {

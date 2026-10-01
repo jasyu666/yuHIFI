@@ -53,7 +53,11 @@ class App : Application() {
         DeviceGate.install(this)
 
         // 上次开着的话，重启后接着开 —— 不然每次改完代码重新安装都要去设置里点一遍
-        if (Settings.debugEnabled(this)) DebugServer.start(this)
+        // ★★ 只在内部版自启（见 [diagnosticsEnabled]）—— 正式包里那个端口
+        //    连开关都没有，更不该自己起来。
+        if (diagnosticsEnabled(this) && Settings.debugEnabled(this)) {
+            DebugServer.start(this)
+        }
 
         /*
          * ★★ 「无线传输」**刻意不在这里开机自启**（正式版就该是这样）。

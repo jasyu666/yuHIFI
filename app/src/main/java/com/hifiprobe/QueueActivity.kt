@@ -249,9 +249,9 @@ class QueueActivity : AppCompatActivity(), PlayerSession.Listener {
         }
         tvQueueHint.text = if (q.shuffle) {
             "随机播放中：播放顺序已被打乱，下面的列表是队列本身的内容。" +
-                    "编辑（拖动、移除、加歌）会自动关闭随机播放。"
+                    "编辑（拖动、移除、添加曲目）会自动关闭随机播放。"
         } else {
-            "按住左侧把手可以拖动排序。点一行直接跳过去播放。"
+            "按住左侧把手可以拖动排序。点击一行直接跳转播放。"
         }
     }
 

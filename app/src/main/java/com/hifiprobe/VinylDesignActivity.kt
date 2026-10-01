@@ -159,7 +159,7 @@ class VinylDesignActivity : AppCompatActivity() {
         // ---- 换一批 ----
         row(
             "换一批",
-            "同一个种子永远画出同一张盘。不满意的就换种子里再抽",
+            "同一个种子永远画出同一张盘。不满意可更换种子重新抽取。",
             "🎲"
         ) {
             style = style.copy(seed = System.currentTimeMillis() and 0x7FFFFFFF)
@@ -176,14 +176,14 @@ class VinylDesignActivity : AppCompatActivity() {
             ) { v ->
                 style = style.copy(baseAlpha = v.roundToInt()); afterChange()
             }
-            hint("拉到 100% 以下就是透明盘 —— Clear / Ultra Clear 那一类，能透过盘面看见底下的东西。真实彩胶里透明盘占了一大半。")
+            hint("调至 100% 以下即为透明盘 —— Clear / Ultra Clear 一类，可透过盘面看见底下内容。真实彩胶中透明盘占大多数。")
         }
 
         section("中心标签")
         card { c -> swatchRow(c, style.labelColor) { style = style.copy(labelColor = it); afterChange() } }
 
         section("喷溅颜色")
-        hint("每种的「份量」决定这种料撒多少。点色块可以改颜色、调份量或删掉。")
+        hint("每种的「份量」决定这种料撒多少。点击色块可以改颜色、调份量或删除。")
         card { c -> splatList(c) }
         spacer()
         card { c ->
@@ -193,7 +193,7 @@ class VinylDesignActivity : AppCompatActivity() {
                 style = style.copy(splat = style.splat.map { it.copy(alpha = a) })
                 afterChange()
             }
-            hint("一次设定所有彩料。半透的料压在别的颜色上，下层会透出来 —— 真实的「色中色」就是这么来的。想单独调某一种，点上面那一行进去调。")
+            hint("一次设定所有彩料。半透的料覆盖在其他颜色之上时，下层颜色会透出 —— 真实的「色中色」即由此而来。如需单独调整某一种，点击上方对应行进入调整。")
         }
         spacer()
         outlineButton("＋ 添加一种颜色") {
@@ -202,12 +202,12 @@ class VinylDesignActivity : AppCompatActivity() {
         }
 
         section("工艺参数")
-        hint("这四个是压片机上的真实变量，不是滤镜。条纹的形状全部由它们推出来 —— 想更像实物，把投料区调小（压得更狠）、扰动调小。")
+        hint("这四个是压片机上的真实变量，不是滤镜。条纹的形状全部由它们推出。想更接近实物，可将投料区调小（压得更狠）、扰动调小。")
         card { c ->
             slider(c, "投料区大小", "${(style.chargeRatio * 100).roundToInt()}%", 0.15f, 0.55f, style.chargeRatio) { v ->
                 style = style.copy(chargeRatio = v); afterChange()
             }
-            hint("彩料堆在多大的一个圆里。越小 = 压开时拉伸越狠，条纹越细长；越大 = 条纹越短越粗。")
+            hint("彩料堆在多大的一个圆里。越小，压开时拉伸越狠，条纹越细长；越大，条纹越短越粗。")
             divider(c)
             slider(c, "胶粒数量", "${style.count} 粒", 10f, 400f, style.count.toFloat()) { v ->
                 style = style.copy(count = v.roundToInt()); afterChange()
@@ -216,7 +216,7 @@ class VinylDesignActivity : AppCompatActivity() {
             slider(c, "料块大小", "${(style.granuleSize * 100).roundToInt()}%", 0.10f, 0.80f, style.granuleSize) { v ->
                 style = style.copy(granuleSize = v); afterChange()
             }
-            hint("每块料有多大（相对投料区）。大块压开是粗条纹，小块是细针 —— 真实的彩料大小差一个量级，这里用幂律还原了这种参差。")
+            hint("每块料有多大（相对投料区）。大块压开是粗条纹，小块是细针。真实的彩料大小差一个量级，这里用幂律还原了这种参差。")
             /*
              * ★★ 「流动扰动」那根滑条**去掉了**（用户 2026-10-01 定的）。
              *
@@ -236,9 +236,9 @@ class VinylDesignActivity : AppCompatActivity() {
             afterChange()
         }
         spacer()
-        primaryButton("保存这张盘…") { save() }
+        primaryButton("保存这张唱片…") { save() }
 
-        hint("保存时会给它起个名字，存下来的设计进入「默认封面样式」列表，和内置样式并列。刚存完的那张会立刻生效 —— 没有内嵌封面的曲目都用它。")
+        hint("保存时为其命名。保存的设计进入「默认封面样式」列表，与内置样式并列。刚保存的设计立即生效 —— 无内嵌封面的曲目都将使用它。")
     }
 
     // ------------------------------------------------------------------
@@ -330,7 +330,7 @@ class VinylDesignActivity : AppCompatActivity() {
         parent.tag = "splatCard"
         if (style.splat.isEmpty()) {
             parent.addView(TextView(this).apply {
-                text = "还没有颜色 —— 点下面的「添加一种颜色」"
+                text = "尚未添加颜色，点击下方的「添加一种颜色」。"
                 setTextColor(Ui.c(this@VinylDesignActivity, R.color.text_tertiary))
                 textSize = 12f
                 setPadding(dp(2), dp(8), dp(2), dp(8))
@@ -434,7 +434,7 @@ class VinylDesignActivity : AppCompatActivity() {
 
         // ---- 这一种料自己有多透 ----
         col.addView(TextView(this).apply {
-            text = "不透明度（越低越透，下面的颜色透得出来）"
+            text = "不透明度（越低越透明，下层颜色可透出）"
             setTextColor(Ui.c(this@VinylDesignActivity, R.color.text_secondary))
             textSize = 12f
             setPadding(0, dp(14), 0, 0)
@@ -500,55 +500,55 @@ class VinylDesignActivity : AppCompatActivity() {
      *   绝大多数人不会想名字，给一个说得出所以然的默认值比空着强。
      */
     private fun save() {
-        val input = android.widget.EditText(this).apply {
-            setText(defaultName())
-            setSelection(text.length)
-            inputType = android.text.InputType.TYPE_CLASS_TEXT
-            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
-        }
-        AlertDialog.Builder(this)
-            .setTitle("保存这张盘")
-            .setMessage("给它起个名字。存下来的设计会出现在「默认封面样式」列表里，和内置预设并列。")
-            .setView(input)
-            .setPositiveButton("保存") { _, _ -> saveAs(input.text.toString()) }
-            .setNegativeButton("取消", null)
-            .show()
-    }
-
-    /** 保存时预填的名字：底色名 + 最多三种彩料名。例：`墨黑·正红蜜橘` */
-    private fun defaultName(): String {
-        val base = colorName(style.baseColor)
-        if (style.splat.isEmpty()) return base
-        return base + "·" + style.splat.take(3).joinToString("") { colorName(it.color) }
-    }
-
-    private fun saveAs(raw: String) {
-        val name = raw.trim().ifEmpty { defaultName() }
-        if (Settings.savedVinyls(this).any { it.name == name }) {
+            val input = android.widget.EditText(this).apply {
+                setText(defaultName())
+                setSelection(text.length)
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            }
             AlertDialog.Builder(this)
-                .setTitle("已有同名设计")
-                .setMessage("「$name」已经存在。用它替换掉旧的那张吗？")
-                .setPositiveButton("替换") { _, _ -> commitSave(name) }
+                .setTitle("保存这张唱片")
+                .setMessage("为其命名。保存的设计将出现在「默认封面样式」列表中，与内置样式并列。")
+                .setView(input)
+                .setPositiveButton("保存") { _, _ -> saveAs(input.text.toString()) }
                 .setNegativeButton("取消", null)
                 .show()
-        } else {
-            commitSave(name)
         }
-    }
 
-    private fun commitSave(name: String) {
-        val json = VinylArt.toJson(style)
-        Settings.putSavedVinyl(this, name, json)
-        /*
-         * 存完立刻用上。
-         *
-         * ★ 走的是原来那条路：只写 `vinyl_custom`，不碰预设下标 ——
-         *   `currentVinyl()` 里「自定义压着预设」的判断因此一行都不用改。
-         */
-        Settings.setVinylCustom(this, json)
-        Settings.setVinylCustomName(this, name)
-        tvSaveHint.text = "已保存为「$name」"
-        android.widget.Toast.makeText(this, "已保存为「$name」", android.widget.Toast.LENGTH_SHORT).show()
+        /** 保存时预填的名字：底色名 + 最多三种彩料名。例：`墨黑·正红蜜橘` */
+        private fun defaultName(): String {
+            val base = colorName(style.baseColor)
+            if (style.splat.isEmpty()) return base
+            return base + "·" + style.splat.take(3).joinToString("") { colorName(it.color) }
+        }
+
+        private fun saveAs(raw: String) {
+            val name = raw.trim().ifEmpty { defaultName() }
+            if (Settings.savedVinyls(this).any { it.name == name }) {
+                AlertDialog.Builder(this)
+                    .setTitle("已有同名设计")
+                    .setMessage("「$name」已存在。是否用它替换原有设计？")
+                    .setPositiveButton("替换") { _, _ -> commitSave(name) }
+                    .setNegativeButton("取消", null)
+                    .show()
+            } else {
+                commitSave(name)
+            }
+        }
+
+        private fun commitSave(name: String) {
+            val json = VinylArt.toJson(style)
+            Settings.putSavedVinyl(this, name, json)
+            /*
+             * 存完立刻用上。
+             *
+             * ★ 走的是原来那条路：只写 `vinyl_custom`，不碰预设下标 ——
+             *   `currentVinyl()` 里「自定义压着预设」的判断因此一行都不用改。
+             */
+            Settings.setVinylCustom(this, json)
+            Settings.setVinylCustomName(this, name)
+            tvSaveHint.text = "已保存为「$name」"
+            android.widget.Toast.makeText(this, "已保存为「$name」", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     // ------------------------------------------------------------------

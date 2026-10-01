@@ -119,35 +119,35 @@ class SettingsActivity : AppCompatActivity() {
 
         section("外观")
         card { c ->
-            row(c, "主题", "深色适合暗环境，浅色适合白天",
+            row(c, "主题", "深色适合暗环境，浅色适合白天。",
                 themeModeName(Settings.themeMode(this))) { pickTheme() }
             divider(c)
             row(c, "默认封面样式",
                 if (Settings.vinylIsCustom(this))
-                    "当前用的是「彩胶设计」里存下的那张。选下面任意预设会换掉它"
+                    "当前使用「彩胶设计」中保存的设计。选择下方任意预设将替换该设计。"
                 else
-                    "没有内嵌封面的曲目用这个。都是程序化画的，不是图片资源",
-                // ★ 自己存的设计显示它的名字；加名字之前存的老设计没有名字，
+                    "无内嵌封面的曲目将使用此样式。该样式由程序绘制，并非图片资源。",
+                // ★ 自己保存的设计显示它的名字；加名字之前存的老设计没有名字，
                 //   退回「自定义」—— 不能让 trailing 空着
                 Settings.vinylCustomName(this)
                     ?: if (Settings.vinylIsCustom(this)) "自定义"
                     else presetName(Settings.vinylPreset(this))) { pickVinylPreset() }
             divider(c)
             row(c, "彩胶设计",
-                "自己造一张盘 —— 调底色、喷溅颜色与份量，再调压片机的真实参数" +
-                        "（投料区大小、料块大小）。保存时给它起个名字，\n" +
-                        "存下来的会和内置样式并列，可以随时切回去",
+                "自行设计一张唱片 —— 调整底色、喷溅颜色与份量，并调整压片机的真实参数" +
+                        "（投料区大小、料块大小）。保存时为其命名，\n" +
+                        "保存的设计将与内置样式并列，可随时切回。",
                 "›") { startActivity(Intent(this, VinylDesignActivity::class.java)) }
         }
 
         section("音乐库")
         card { c ->
             row(c, "无线传输",
-                "在 App 内起一个网页服务，电脑浏览器打开就能上传和管理音乐库。\n" +
-                        "⚠ 只在本次运行期间有效 —— App 重启后需要重新打开一次",
+                "在 App 内启动网页服务，在电脑浏览器中打开即可上传和管理音乐库。\n" +
+                        "⚠ 仅在本次运行期间有效 —— App 重启后需重新开启。",
                 if (WirelessServer.isRunning()) "已开启" else "已关闭") { toggleWireless() }
             divider(c)
-            row(c, "端口", "浏览器里用 http://手机IP:端口 访问。被占用时换一个",
+            row(c, "端口", "在浏览器中通过 http://手机IP:端口 访问。端口被占用时可更换。",
                 Settings.wirelessPort(this).toString()) { editPort() }
         }
 
@@ -170,22 +170,22 @@ class SettingsActivity : AppCompatActivity() {
         section("音质")
         card { c ->
             check(c, "信任 44.1k 家族",
-                "8 个标准速率全部直通，44.1k 曲库不再重采样。实测这 8 个设备都真的支持" +
-                        "（判据是设备自己的 feedback 端点，不是 SET_CUR 回读）",
+                "8 个标准速率全部直通，音乐库中的 44.1k 曲目不再重采样。实测这 8 个设备" +
+                        "均确实支持（判据为设备自身的 feedback 端点，而非 SET_CUR 回读）。",
                 Settings.allowAllRates(this)) { v ->
                 Settings.setAllowAllRates(this, v)
                 NativePlayer.nativeSetAllowAllStandardRates(v)
-                toast("下次打开文件生效")
+                toast("下次打开文件时生效")
             }
         }
 
         section("交叉馈送")
         card { c ->
             check(c, "交叉馈送",
-                "戴耳机时左右耳各听各的，声像会挤在脑袋里（头中效应）。开启后把一部分" +
-                        "对侧声道延迟一点、滤掉高频再混进来，模拟声音绕过头部 —— 声像会往外推，" +
+                "佩戴耳机时左右耳各自独立，声像会集中在头部（头中效应）。开启后将一部分" +
+                        "对侧声道延迟并滤除高频后混入，模拟声音绕过头部 —— 声像将被推远，" +
                         "代价是左右分离度下降。\n" +
-                        "★ 开启后不再适用 bit-perfect：它就是在改送往解码器的样本。\n" +
+                        "★ 开启后不再适用 bit-perfect：该功能会修改送往解码器的样本。\n" +
                         "★ 对 DSD 无效（DSD 走原生位流，不经过 PCM 域），对单声道也无效。",
                 Settings.crossfeedEnabled(this)) { v ->
                 Settings.setCrossfeedEnabled(this, v)
@@ -194,24 +194,24 @@ class SettingsActivity : AppCompatActivity() {
             divider(c)
             row(c, "强度",
                 "延迟 0.20 / 0.35 / 0.50 ms（两耳声程差），低通 700Hz（头影效应），" +
-                        "交叉量 −6 / −4.5 / −3 dB。越强声场越窄。",
+                        "交叉量 −6 / −4.5 / −3 dB。强度越高，声场越窄。",
                 crossfeedLevelName(Settings.crossfeedLevel(this))) { pickCrossfeedLevel() }
         }
 
         section("音量控制")
         card { c ->
             check(c, "音量控制",
-                "USB 直连绕过了系统混音，所以系统音量条对它不起作用；而很多小尾巴" +
-                        "（Dawn Pro、TANCHJIM BUNNY DSP 都是）只实现了静音、没有硬件音量 ——" +
-                        "这类设备在独占模式下就彻底没法调响度。开启后音量滑条出现在正在播放页。\n" +
-                        "★ 开启后不再适用 bit-perfect：它是在样本上做乘法。\n" +
+                "USB 直连绕过了系统混音，系统音量条对其不起作用；而许多 USB 解码器" +
+                        "（Dawn Pro、TANCHJIM BUNNY DSP 均是）仅实现静音、没有硬件音量 ——" +
+                        "这类设备在独占模式下无法调节响度。开启后音量滑条将出现在正在播放页。\n" +
+                        "★ 开启后不再适用 bit-perfect：该功能直接对样本做乘法运算。\n" +
                         "★ 但输出位深会提到 24bit —— 16bit 音源在 −48dB 以内不丢有效位。\n" +
                         "★ 音量停在 0dB 时一个样本都不碰；对 DSD 无效。",
                 Settings.volumeControl(this)) { v ->
                 Settings.setVolumeControl(this, v)
                 PlayerSession.refreshSoftwareVolume()
                 // 位深是开文件时定的，切换要等下一首
-                toast(if (v) "已开启 · 输出位深下次打开文件时切换" else "已关闭 · 恢复 bit-perfect")
+                toast(if (v) "已开启 · 输出位深将在下次打开文件时切换" else "已关闭 · 恢复 bit-perfect")
                 build()          // 滑条的可用状态跟着开关走，重画一下
             }
             divider(c)
@@ -226,9 +226,9 @@ class SettingsActivity : AppCompatActivity() {
              *   摆最上面的话，没开过这个功能的人会先撞见一个看不懂的开关。
              */
             check(c, getString(R.string.volume_lock),
-                "锁上之后三根滑条和三个输入框都不能动了 —— 防的不是别人，是自己手滑。\n" +
-                        "★ 它和上限、下限不是一回事：上下限管能调到哪，锁管能不能调。\n" +
-                        "★ 会一直记着，重启也还在。",
+                "锁定后三根滑条与三个输入框均不可操作 —— 用于防止误触。\n" +
+                        "★ 与上限、下限不同：上下限决定可调范围，本项决定是否允许调整。\n" +
+                        "★ 该状态会被保存，重启后仍然生效。",
                 Settings.volumeLocked(this)) { v ->
                 Settings.setVolumeLocked(this, v)
                 syncVolumeSliders()      // 不整页重建：重建会把页面弹回顶部
@@ -240,33 +240,45 @@ class SettingsActivity : AppCompatActivity() {
         section("后台")
         card { c ->
             row(c, getString(R.string.bg_unrestricted),
-                "不设置的话，系统会在后台把进程杀掉、音乐就断了 —— 所以这一项是" +
-                        "后台播放的前提，不是可选项。点这里看怎么开。\n" +
-                        "★ 页面里读到的状态在小米上不一定准，以系统里实际显示为准",
+                "若未设置，系统将在后台终止进程、播放随之中断 —— 因此本项是" +
+                        "后台播放的前提条件，而非可选项。点击此处查看开启方式。\n" +
+                        "★ 本页读到的状态在小米机型上不一定准确，请以系统中实际显示为准",
                 if (batteryUnrestricted()) "已开启" else "未开启") { showBatteryHint() }
         }
 
         section("统计")
         card { c ->
-            row(c, "累计收听",
-                "真正在播放的时间总和。暂停和停止不计；音频卡顿计（人还在听）。" +
-                        "每首放完记一次。点这里查看或清空。",
+            row(c, "累计收听时长",
+                "统计实际播放时长：暂停与停止不计入，音频卡顿计入（此时用户仍在收听）。" +
+                        "每首曲目播放完毕后写入一次，点击此处查看或清空。",
                 fmtListened(PlayerSession.listenedTotalMs())) { showListened() }
         }
 
+        /*
+         * ★★ 从「测试功能」往下这三节**只在内部版显示**（用户 2026-09-26 定的）。
+         *    正式包里它们连入口都没有 —— 普通用户面对一堆 URB 深度、
+         *    反馈速率之类的开关只会误改，而且这些开关本来也不是给他们准备的。
+         *
+         *    ★ 是**藏**不是删：内部版还要靠它们排查。判据见 [diagnosticsEnabled]。
+         */
+        if (!diagnosticsEnabled(this)) {
+            footer()
+            return
+        }
+
         section("测试功能")
-        hint("下面这些都有安全的默认值。没遇到对应的问题就别动 —— " +
-                "每一项都写清了它在什么情况下该被调整。")
+        hint("以下各项均有安全的默认值。未遇到对应问题时请勿改动 —— " +
+                "每一项均说明了应在何种情况下调整。")
 
         card { c ->
             row(c, "在途 URB 深度",
-                "抗调度卡顿的余量（=深度 ms），同时决定 seek 后旧音频的尾巴长度。\n" +
-                        "默认 32 是实测能消除断音的最小值；后台卡顿多就往上调",
+                "抗调度卡顿的余量（=深度 ms），同时决定 seek 后旧音频的残留长度。\n" +
+                        "默认 32 是实测能消除断音的最小值；后台卡顿较多时请上调。",
                 "${Settings.urbCount(this)} 个") { pickUrb() }
             divider(c)
             check(c, "跟随设备反馈速率",
-                "异步 DAC 必须跟随，否则它的 FIFO 会被慢慢抽干、每 60~90 秒卡一次。\n" +
-                        "留这个开关只为 A/B 对比，正常使用请保持开启",
+                "异步 DAC 必须跟随，否则其 FIFO 会被逐渐抽干，每 60~90 秒卡顿一次。\n" +
+                        "保留此开关仅供 A/B 对比，正常使用请保持开启。",
                 Settings.followFeedback(this)) { v ->
                 Settings.setFollowFeedback(this, v)
                 PlayerSession.handle.takeIf { it != 0L }
@@ -274,20 +286,20 @@ class SettingsActivity : AppCompatActivity() {
             }
             divider(c)
             check(c, "seek 时丢弃在途数据",
-                "去掉 seek 之后残留的旧音频尾巴，代价是有一小段静音",
+                "去除 seek 之后残留的旧音频，代价是出现一小段静音。",
                 Settings.flushQueueOnSeek(this)) { v ->
                 Settings.setFlushQueueOnSeek(this, v)
                 PlayerSession.handle.takeIf { it != 0L }
                     ?.let { NativePlayer.nativeSetFlushQueueOnSeek(it, v) }
             }
             divider(c)
-            check(c, "无缝切歌（同速率不停流）",
-                "专辑连播时不留空隙。⚠ 尚未实现 —— 打开也不会有任何效果，等后续版本",
+            check(c, "无缝切换曲目（同速率不停流）",
+                "专辑连播时不留空隙。⚠ 尚未实现 —— 开启后亦不会有任何效果，请等待后续版本。",
                 Settings.gapless(this), enabled = false) { v -> Settings.setGapless(this, v) }
             divider(c)
             check(c, "输出字节转储",
-                "把送进 USB 的字节存成文件，用于和电脑上的参考 PCM 逐字节比对。" +
-                        "验证 bit-perfect 用，正常听歌不必开（占 32MB 内存）",
+                "将送往 USB 的字节保存为文件，可与电脑上的参考 PCM 逐字节比对，" +
+                        "用于验证 bit-perfect。正常聆听时无需开启（占用 32MB 内存）。",
                 Settings.outputDump(this)) { v -> Settings.setOutputDump(this, v) }
         }
 
@@ -301,12 +313,12 @@ class SettingsActivity : AppCompatActivity() {
         section("调试")
         card { c ->
             row(c, "只读调试端口",
-                "在局域网里暴露当前界面截图和播放状态，供开发时远程查看。" +
-                        "⚠ 同网络下任何人都能访问，包括你的屏幕内容 —— 不用时请关掉",
+                "在局域网内暴露当前界面截图和播放状态，供开发时远程查看。" +
+                        "⚠ 同网络下任何人均可访问，包括你的屏幕内容 —— 不用时请关闭。",
                 if (Settings.debugEnabled(this)) "已开启" else "已关闭") { toggleDebug() }
         }
 
-        hint("yuHIFI · 自研 UAC 驱动 + libusb 独占输出")
+        footer()
     }
 
     // ------------------------------------------------------------------
@@ -358,10 +370,10 @@ class SettingsActivity : AppCompatActivity() {
                 AlertDialog.Builder(this)
                     .setTitle("无线传输已开启")
                     .setMessage(
-                        "在电脑浏览器里打开：\n\n${WirelessServer.url(this)}\n\n" +
-                                "手机和电脑要在同一个 WiFi 下。\n" +
-                                "上传的文件会直接进音乐库，传完自动刷新。\n\n" +
-                                "⚠ App 重启后需要重新打开一次。"
+                        "在电脑浏览器中打开：\n\n${WirelessServer.url(this)}\n\n" +
+                                "手机与电脑需处于同一 WiFi 网络下。\n" +
+                                "上传的文件将直接进入音乐库，传输完成后自动刷新。\n\n" +
+                                "⚠ App 重启后需重新开启。"
                     )
                     .setPositiveButton("知道了", null)
                     .show()
@@ -391,7 +403,7 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     build()
                 } else {
-                    toast("端口要在 1024 ~ 65535 之间")
+                    toast("端口需在 1024 ~ 65535 之间")
                 }
             }
             .setNegativeButton("取消", null)
@@ -445,11 +457,11 @@ class SettingsActivity : AppCompatActivity() {
         Settings.setVinylCustomName(this, null)
         Settings.setVinylPreset(this, which)
         /*
-         * ★ 措辞从「之前的自定义设计已取消」改掉了：现在自己存的设计是**存档**，
+         * ★ 措辞从「原有自定义设计已取消」改掉了：现在保存的设计是**存档**，
          *   切到预设只是不再用它，那张设计还在列表里，随时切得回去 ——
          *   说"已取消"会让人以为丢了。
          */
-        if (hadCustom) toast("已切换为预设（你自己的设计还留着）")
+        if (hadCustom) toast("已切换为预设（保存的设计仍保留）")
         build()
     }
 
@@ -457,7 +469,7 @@ class SettingsActivity : AppCompatActivity() {
         val saved = Settings.savedVinyls(this)
         if (saved.isEmpty()) return
         AlertDialog.Builder(this)
-            .setTitle("删除哪个设计")
+            .setTitle("选择要删除的设计")
             .setItems(saved.map { it.name }.toTypedArray()) { _, which ->
                 val name = saved[which].name
                 Settings.removeSavedVinyl(this, name)
@@ -488,7 +500,7 @@ class SettingsActivity : AppCompatActivity() {
         val options = listOf(8, 16, 32, 64, 128)
         val labels = options.map {
             when (it) {
-                8 -> "$it 个（余量 8ms）—— 会卡，留作复现旧问题"
+                8 -> "$it 个（余量 8ms）—— 会卡顿，留作复现旧问题"
                 32 -> "$it 个（余量 32ms）—— 默认，实测能消除断音的最小值"
                 128 -> "$it 个（余量 128ms）—— seek 会明显迟钝"
                 else -> "$it 个（余量 ${it}ms）"
@@ -579,9 +591,9 @@ class SettingsActivity : AppCompatActivity() {
 
         if (!Settings.volumeLocked(this)) {
             hint(
-                if (on) "滑条和右边的框都能改，改哪个都一样。两头由下面的上限、下限决定 ——" +
-                        "拖到底也只会到上限，不会到 0dB。−48dB 以内不丢有效位，再低就开始丢，但到那个响度早就听不出来了。"
-                else "开关打开后才能调。"
+                if (on) "滑条与右侧输入框均可修改，效果相同。两端由下方的上限、下限决定 ——" +
+                        "拖到底至多到达上限，不会到 0dB。−48dB 以内不丢有效位，再低开始丢位，但该响度已无法听辨。"
+                else "需先开启上方的开关。"
             )
         }
     }
@@ -652,9 +664,9 @@ class SettingsActivity : AppCompatActivity() {
 
         if (!Settings.volumeLocked(this)) {
             hint(
-                if (!on) "开关打开后才能调。"
-                else if (ceiling) "音量最多只能调到这里。设它是为了让手一滑也不至于炸耳朵。"
-                else "音量最少只能调到这里。设它可以把最左端那截听不见的区间直接砍掉。"
+                if (!on) "需先开启上方的开关。"
+                else if (ceiling) "音量最多只能调至此处。设置它是为了避免误触导致音量过高。"
+                else "音量最少只能调至此处。设置它可以跳过最左端听不见的区间。"
             )
         }
     }
@@ -929,6 +941,11 @@ class SettingsActivity : AppCompatActivity() {
      * 用户只能靠系统返回手势出去，而界面上没有任何提示。
      * 这是个纯粹的可用性缺口，不是装饰。
      */
+    /** 页脚。★ 提出来是因为正式版会 early-return 跳过最后三节，页脚不能跟着丢 */
+    private fun footer() {
+        hint("yuHIFI · 自研 UAC 驱动 + libusb 独占输出")
+    }
+
     private fun header() {
         container.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -968,15 +985,15 @@ class SettingsActivity : AppCompatActivity() {
             build()
             return
         }
-        val url = DebugServer.url(this) ?: "（没取到本机 IP）"
+        val url = DebugServer.url(this) ?: "（未获取到本机 IP）"
         AlertDialog.Builder(this)
             .setTitle("调试端口已开启")
             .setMessage(
-                "同网络下用浏览器打开：\n\n$url\n\n" +
+                "在同一网络下使用浏览器打开：\n\n$url\n\n" +
                         "/debug/state   当前页面与播放状态\n" +
                         "/debug/shot    当前界面截图\n" +
                         "/debug/crash   最后一次崩溃堆栈\n\n" +
-                        "任何人都能访问这些地址，包括你的屏幕内容。用完请回来关掉。"
+                        "任何人均可访问这些地址，包括你的屏幕内容。使用完毕后请返回关闭。"
             )
             .setPositiveButton("知道了", null)
             .show()
@@ -1111,12 +1128,12 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun showListened() {
         AlertDialog.Builder(this)
-            .setTitle("累计收听")
+            .setTitle("累计收听时长")
             .setMessage(
-                "到目前为止一共听了 ${fmtListened(PlayerSession.listenedTotalMs())}。\n\n" +
-                        "统计的是真正在播放的时间：暂停和停止不计，音频卡顿计（人还在听）。" +
-                        "每首放完记一次盘，所以进程被杀最多丢当前这一首。\n\n" +
-                        "清空之后从零重新计 —— 已听过的曲目不受影响，这只是个计数器。"
+                "截至目前累计收听 ${fmtListened(PlayerSession.listenedTotalMs())}。\n\n" +
+                        "统计的是实际播放时长：暂停与停止不计入，音频卡顿计入（此时用户仍在收听）。" +
+                        "每首曲目播放完毕后写入一次，因此进程被终止时最多丢失当前曲目。\n\n" +
+                        "清空后从零重新统计。已听过的曲目不受影响，该数据仅为累计计数器。"
             )
             .setPositiveButton("关闭", null)
             .setNeutralButton("清空") { _, _ -> confirmResetListened() }
@@ -1126,7 +1143,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun confirmResetListened() {
         AlertDialog.Builder(this)
             .setTitle("清空累计收听时长？")
-            .setMessage("清空后从零开始统计。这个操作不可撤销。")
+            .setMessage("清空后将从零开始统计。此操作不可撤销。")
             .setPositiveButton("清空") { _, _ ->
                 PlayerSession.resetListened()
                 toast("已清空")

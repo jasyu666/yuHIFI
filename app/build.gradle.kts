@@ -32,13 +32,25 @@ android {
          *   去查一堆早就修掉的问题 —— 白费一整轮。
          *
          * ★ 两条线用**两套版本号**：
-         *   · 这里（`main`，内部版）—— `0.1-pXX`，跟着构建序号走，
+         *
+         *   · `main`（内部版）—— `0.1-pXX`，跟着构建序号走，
          *     方便对着归档的 APK 文件名认人。
          *   · `release`（正式版）—— `0.1-release` 这种**产品版本**，
-         *     不带构建序号；具体哪个构建看 versionCode。
+         *     不带构建序号。正式版是发给用户的东西，用户不关心 p 几。
+         *
+         *   ★ 那怎么分辨具体是哪个构建？看 **versionCode** ——
+         *     报告页脚印的是「版本名 + versionCode」，两个都在：
+         *
+         *         HiFiProbe 0.1-release (versionCode 69)   安装于 …
+         *
+         *     所以版本名可以稳定不变，**但 versionCode 每出一次包必须 +1**。
+         *
+         *   ★ versionCode **两条线共用同一个序列**：`main` 现在是 98，
+         *     所以这一版是 99。两边的 versionCode 绝不能撞车 ——
+         *     报告页脚只靠它分辨是哪个构建。
          */
-        versionCode = 116                 // 与归档文件名里的 pXX 对齐
-        versionName = "0.1-p116"
+        versionCode = 117
+        versionName = "0.1-release"
 
         if (!skipNative) {
             ndk {
@@ -73,6 +85,18 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            /*
+             * ★ 用 **debug 证书**签正式版。
+             *
+             *   这是个自用工程，没有发布到任何应用商店，也就没有单独的发布证书。
+             *   上一版正式包（versionCode 68）验出来就是 Android Debug 证书 ——
+             *   保持同一张证书，正式包才能**覆盖安装**内部版，两个版本可以在
+             *   同一台手机上互相替换而不必先卸载。
+             *
+             *   ★ 换成别的证书的话，用户必须**先卸载**才能装 —— 而卸载会连
+             *     音乐库一起删掉。对一个装着几百 GB 音乐的 App，那是灾难。
+             */
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             isJniDebuggable = true

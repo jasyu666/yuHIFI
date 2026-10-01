@@ -134,8 +134,8 @@ class App:
         self.mode_var = tk.StringVar(value="root")     # root / existing / new
         self.newdir_var = tk.StringVar(value="")
         self.filter_var = tk.StringVar(value="")
-        self.probe_var = tk.StringVar(value="还没检测")
-        self.src_summary = tk.StringVar(value="还没选东西。可以拖文件夹到这个 .pyw 上，"
+        self.probe_var = tk.StringVar(value="尚未检测")
+        self.src_summary = tk.StringVar(value="尚未选择内容。可以拖文件夹到这个 .pyw 上，"
                                              "或用下面的按钮。")
         self.target_var = tk.StringVar(value="目标：（音乐库根目录）")
         self.status_var = tk.StringVar(value="先确认目标设备，再选要传的东西。")
@@ -279,7 +279,7 @@ class App:
         self.btn_up.grid(row=0, column=1)
 
         self.log_line("先在手机 App 里打开「设置 → 无线传输」，然后把页面上那串地址填到上面，")
-        self.log_line("或者点「扫描局域网」自动找。之后：选要传的东西 → 选传到哪 → 开始上传。")
+        self.log_line("或者点「扫描局域网」自动找。之后：选要传的东西 → 选上传目标 → 开始上传。")
 
         # ★ 这些变量一变，按钮状态必须立刻跟着变，否则会出现
         #   "输入框里是 B，按钮却是照 A 验过的状态亮的"。
@@ -409,9 +409,9 @@ class App:
                                    and self.probe_key() is not None) else "disabled")
 
         if self.mode_var.get() == "new":
-            self.target_var.set("目标：新建目录「%s」" % (nd or "（还没填名字）"))
+            self.target_var.set("目标：新建目录「%s」" % (nd or "（尚未填写名称）"))
         elif self.mode_var.get() == "existing":
-            self.target_var.set("目标：%s" % (d if d else "（还没选）"))
+            self.target_var.set("目标：%s" % (d if d else "（尚未选择）"))
         else:
             self.target_var.set("目标：（音乐库根目录）")
 
@@ -441,7 +441,7 @@ class App:
         self.items_ok, self.items_bad, self.items_skipped = [], [], []
         self.loaded_key = None
         self.tree.delete(*self.tree.get_children())
-        self.src_summary.set("还没选东西。")
+        self.src_summary.set("尚未选择内容。")
         self.status_var.set("已清空。")
         self._refresh_upload_button()
 
@@ -572,7 +572,7 @@ class App:
                             "%s 上有 HTTP 服务，但不是 yuHIFI（%s）" % (host, e), []))
             except Exception as e:
                 self.q.put(("probe", key, False,
-                            "连不上 %s:%d —— %s" % (host, port, e), []))
+                            "无法连接 %s:%d —— %s" % (host, port, e), []))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -599,7 +599,7 @@ class App:
 
         ★★ 上传完**必须**调这个。实测漏掉的后果（用户 2026-09-25 报）：
           新建出来的那层目录不在树里，用户想接着往新目录里传就找不到它，
-          得手动点一次「检测」才行 —— 而"手动点一下"这种事，用户永远不知道要做。
+          得手动点一次「检测」才行 —— 而"手动点击"这种事，用户永远不知道要做。
         """
         key = self.probe_key()
         if not key or self.probed_key != key:
@@ -624,13 +624,13 @@ class App:
             self.fail("没有可上传的文件 —— 重新选一下。")
             return
         if self.probed_key != self.probe_key():
-            self.fail("这个目标还没确认过（地址或端口和上次检测的不一样）。\n"
+            self.fail("这个目标尚未确认过（地址或端口和上次检测的不一样）。\n"
                       "先点「检测」。")
             return
 
         d, nd = self.target()
         if self.mode_var.get() == "existing" and not d:
-            self.fail("还没选上传到哪个目录。")
+            self.fail("尚未选择上传目标目录。")
             return
         if self.mode_var.get() == "new" and not nd:
             self.fail("「新建目录」的名字是空的。")
@@ -643,16 +643,16 @@ class App:
             self.log_line("  ✗ %s" % bad_dir, "bad")
             self.fail("上传会和手机上的目录重名：\n\n%s\n\n"
                       "服务端的规则是一次请求里不允许新建已存在的同名目录。\n"
-                      "改「上传到」，或者给源文件夹换个名字。\n"
+                      "改「上传到」，或者给源文件夹更换名称。\n"
                       "一个字节都没发。" % bad_dir)
             return
 
         where = ("新建「%s」" % nd) if nd else (d if d else "音乐库根目录")
         if not messagebox.askyesno(
                 "确认上传",
-                "把 %d 个文件（%s）传到\n\n%s\n\n传到：%s\n\n"
+                "把 %d 个文件（%s）上传至\n\n%s\n\n上传至：%s\n\n"
                 "整棵目录树会在**一次请求**里发完 —— 这是服务端的硬要求。\n"
-                "中途不要关掉手机上的无线传输。"
+                "上传过程中请勿关闭手机上的无线传输。"
                 % (len(self.items_ok), human(sum(i.size for i in self.items_ok)),
                    "%s:%d" % (host, port), where),
                 parent=self.root):
@@ -719,16 +719,16 @@ class App:
             self._set_busy(None)
             found, port = m[1], m[2]
             if not found:
-                self.log_line("  没找到。检查：手机 App 开着吗？「无线传输」开关开了吗？"
-                              "在同一个网络吗？", "bad")
-                self.status_var.set("没找到设备 —— 也可以手动填地址再点「检测」。")
+                self.log_line("  未找到。请检查：手机 App 是否已开启？「无线传输」开关开了吗？"
+                              "是否处于同一网络？", "bad")
+                self.status_var.set("未找到设备 —— 也可以手动填地址再点「检测」。")
                 return
             host, desc = found[0]
             # ★ 端口写回输入框：非默认端口只写裸 IP 的话，probe_key() 会
             #   按 8765 算，和扫描实际用的端口对不上 —— 按钮就永远是灰的。
             self.host_var.set(host if port == 8765 else "%s:%d" % (host, port))
             if len(found) > 1:
-                self.log_line("  ★ 找到 %d 台，用的是第一台；不对的话手动改成别的。"
+                self.log_line("  ★ 找到 %d 台，用的是第一台；若不正确，手动改成别的。"
                               % len(found))
                 for ip, dsc in found:
                     self.log_line("     %s  %s" % (ip, dsc), "dim" if ip != host else None)
@@ -752,7 +752,7 @@ class App:
                 self.dirs = dirs
                 self._save_host(key.rsplit(":", 1)[0])
                 self.rebuild_dir_tree()
-                self.log_line("  库里已有 %d 个目录，最高一层 %d 个（树默认折叠）"
+                self.log_line("  音乐库中已有 %d 个目录，最高一层 %d 个（树默认折叠）"
                               % (len(dirs),
                                  len({d.split("/")[0] for d in dirs})))
                 self.status_var.set("目标已确认。")
@@ -788,9 +788,9 @@ class App:
             total = sum(i.size for i in ok)
             odd = []
             if bad:
-                odd.append("%d 个读不了" % len(bad))
+                odd.append("%d 个无法读取" % len(bad))
             if skipped:
-                odd.append("%d 个格式放不了" % len(skipped))
+                odd.append("%d 个格式不支持" % len(skipped))
             if err:
                 self.src_summary.set(err)
                 self.log_line("  " + err, "bad")
@@ -800,14 +800,14 @@ class App:
                                         ("　⚠ " + "、".join(odd)) if odd else ""))
                 self.log_line("  ✓ %d 个可上传，合计 %s" % (len(ok), human(total)), "ok")
             if bad:
-                self.log_line("  ⚠ %d 个文件读不了，**不会**参与上传：" % len(bad), "bad")
+                self.log_line("  ⚠ %d 个文件无法读取，**不会**参与上传：" % len(bad), "bad")
                 for path, why in bad[:8]:
                     self.log_line("     · %s\n       %s" % (path, why), "bad")
                 if len(bad) > 8:
                     self.log_line("     … 另有 %d 个（清单里标红）" % (len(bad) - 8), "bad")
             if skipped:
                 # ★ "传完了" ≠ "传全了" —— 放不了的格式必须报出来，不能静默跳过
-                self.log_line("  ⚠ %d 个文件看着是音频，但音乐库**放不了**，已跳过："
+                self.log_line("  ⚠ %d 个文件疑似音频文件，但音乐库**不支持**，已跳过："
                               % len(skipped), "bad")
                 for path, _ext in skipped[:8]:
                     self.log_line("     · %s" % path, "bad")
@@ -841,13 +841,13 @@ class App:
                 self.status_var.set("服务端拒绝了这次上传。")
                 self.fail("服务端拒绝了这次上传：\n\n%s\n\n"
                           "最常见的是「目录已存在」—— 那就把「上传到」指到\n"
-                          "那个已存在的目录，或者给源文件夹换个名。" % msg)
+                          "那个已存在的目录，或者给源文件夹更换名称。" % msg)
 
         elif kind == "cancelled":
             self._set_busy(None)
             self.prog.configure(value=0)
-            self.log_line("  已取消。手机上可能留下没写完的 .part 文件"
-                          "（正式文件不会坏，它们是收完才改名的）。", "bad")
+            self.log_line("  已取消。手机上可能留下未写完的 .part 文件"
+                          "（正式文件不会损坏，它们是在完整接收后才改名的）。", "bad")
             self.status_var.set("已取消。")
 
         elif kind == "failed":
@@ -862,7 +862,7 @@ class App:
         self.tree.delete(*self.tree.get_children())
         shown = 0
         for path, why in bad[:400]:
-            self.tree.insert("", "end", text=path, values=("读不了",), tags=("bad",))
+            self.tree.insert("", "end", text=path, values=("无法读取",), tags=("bad",))
             shown += 1
         for it in ok[:1000]:
             self.tree.insert("", "end", text=it.rel, values=(human(it.size),))
@@ -1112,7 +1112,7 @@ class LibraryManager:
         self.result.set(("✓ " if ok else "✗ ") + msg)
         self.lbl_result.configure(foreground="#1e8449" if ok else "#c0392b")
         if not ok:
-            messagebox.showwarning("没成功", msg, parent=self.win)
+            messagebox.showwarning("未成功", msg, parent=self.win)
         # ★ 删/建之后必须重拉 —— 服务端那边已经 Library.refresh() 了，
         #   本地这份列表也得跟上，否则界面上还挂着已经没了的条目
         self.refresh()

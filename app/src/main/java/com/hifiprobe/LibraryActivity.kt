@@ -112,7 +112,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
                 val msg = buildString {
                     append("$label：成功 ${r.ok} 个")
                     if (r.failed.isNotEmpty()) {
-                        append("　⚠ 另有 ${r.failed.size} 个读不出来：")
+                        append("　⚠ 另有 ${r.failed.size} 个无法读取：")
                         append(r.failed.take(3).joinToString("、"))
                         if (r.failed.size > 3) append(" …")
                     }
@@ -308,7 +308,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
              */
             SelectionBar.Action(getString(R.string.action_play_selected)) {
                 if (tracks.isEmpty()) {
-                    toast("这里面没有可播放的曲目")
+                    toast("此处无可播放的曲目")
                 } else {
                     PlayerSession.setQueue(tracks, 0)
                     startActivity(Intent(this@LibraryActivity, NowPlayingActivity::class.java))
@@ -355,15 +355,15 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
             if (loose.isNotEmpty()) append("单曲 ${loose.size} 首")
             if (folders.isNotEmpty()) {
                 if (isNotEmpty()) append("、")
-                append("文件夹 ${folders.size} 个（含里面 $inFolders 首）")
+                append("文件夹 ${folders.size} 个（含其中 $inFolders 首）")
             }
         }
         AlertDialog.Builder(this)
             .setTitle("删除 $total 首？")
             .setMessage(
-                "曲库里将删除：$detail。\n\n" +
-                        "文件夹会连同子目录一起删掉。文件无法恢复，" +
-                        "引用了它们的歌单会一并去掉这些条目。"
+                "音乐库中将删除：$detail。\n\n" +
+                        "文件夹将连同子目录一并删除。文件无法恢复，" +
+                        "引用它们的歌单将一并移除这些条目。"
             )
             .setPositiveButton("删除") { _, _ ->
                 io.execute {
@@ -373,7 +373,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
                     val nf = Library.deleteFolders(folders)
                     runOnUiThread {
                         toast(
-                            if (nf > 0) "删除了 $ns 首、$nf 个文件夹" else "删除了 $ns 首"
+                            if (nf > 0) "已删除 $ns 首、$nf 个文件夹" else "已删除 $ns 首"
                         )
                         exitSelect()
                         refreshList()
@@ -480,7 +480,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         val group = Library.allTracksIn(rel).map { it.uri }
         if (group.isEmpty()) {
             // 空文件夹没东西可选。给个反馈，不然点了没反应像是坏了
-            toast("这个文件夹里没有音乐")
+            toast("该文件夹内无曲目")
             return
         }
         sel.setGroup(group, !sel.containsAll(group))
@@ -540,7 +540,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         tvEmpty.visibility = if (empty) View.VISIBLE else View.GONE
         rvTracks.visibility = if (empty) View.GONE else View.VISIBLE
         tvEmpty.text = if (folder.isEmpty()) getString(R.string.empty_library)
-        else "这个文件夹是空的\n\n长按曲目选「移动到…」可以把它挪进来"
+        else "该文件夹为空\n\n长按曲目选择「移动到…」可将其移入"
     }
 
     private fun joinRel(parent: String, name: String) =
@@ -573,7 +573,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         tvLibCount.text = buildString {
             append("$n 首")
             if (subCount > 0) append(" · $subCount 个文件夹")
-            if (folder.isNotEmpty()) append("     库内共 ${Library.size()} 首")
+            if (folder.isNotEmpty()) append("     音乐库内共 ${Library.size()} 首")
         }
     }
 
@@ -592,7 +592,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
                     io.execute {
                         val ok = Library.createFolder(folder, name)
                         runOnUiThread {
-                            if (ok) refreshList() else toast("创建失败：名字为空或已存在")
+                            if (ok) refreshList() else toast("创建失败：名称为空或已存在")
                         }
                     }
                 }
@@ -614,17 +614,17 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
     private fun folderMenu(row: Row.Folder) {
         AlertDialog.Builder(this)
             .setTitle(row.name)
-            .setItems(arrayOf("加到歌单…", "加到队尾", "重命名", "删除（连同里面的音乐）")) { _, which ->
+            .setItems(arrayOf("添加至歌单…", "添加至播放队列", "重命名", "删除（连同其中的曲目）")) { _, which ->
                 // allTracksIn 是在内存索引上过滤，很快，不必下 io 线程
                 val songs = Library.allTracksIn(row.rel)
                 when (which) {
-                    0 -> if (songs.isEmpty()) toast("这个文件夹里没有歌")
+                    0 -> if (songs.isEmpty()) toast("该文件夹内无曲目")
                     else BatchActions.addToPlaylist(this, songs)
 
-                    1 -> if (songs.isEmpty()) toast("这个文件夹里没有歌")
+                    1 -> if (songs.isEmpty()) toast("该文件夹内无曲目")
                     else {
                         PlayerSession.addToQueue(songs)
-                        toast("已把 ${songs.size} 首加到队尾")
+                        toast("已将 ${songs.size} 首添加至播放队列")
                     }
 
                     2 -> askRenameFolder(row)
@@ -643,7 +643,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
                 val n = input.text.toString()
                 io.execute {
                     val ok = Library.renameFolder(row.rel, n)
-                    runOnUiThread { if (ok) refreshList() else toast("重命名失败：名字为空或已存在") }
+                    runOnUiThread { if (ok) refreshList() else toast("重命名失败：名称为空或已存在") }
                 }
             }
             .setNegativeButton("取消", null)
@@ -658,8 +658,8 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         AlertDialog.Builder(this)
             .setTitle("删除文件夹「${row.name}」？")
             .setMessage(
-                "里面的音乐也会一并删掉，无法恢复。" +
-                        if (n > 0) "\n\n（含子文件夹共 $n 首）" else ""
+                "其中的曲目也将一并删除，无法恢复。" +
+                        if (n > 0) "\n\n（直接包含 $n 首，子文件夹中的亦计入）" else ""
             )
             .setPositiveButton("删除") { _, _ ->
                 io.execute {
@@ -674,7 +674,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
     /** 把一首曲目移到别的目录。列出所有目录让用户挑。 */
     private fun askMoveTo(track: Track) {
         val dirs = buildList {
-            add("" to "（库根目录）")
+            add("" to "（音乐库根目录）")
             Library.folders().forEach { add(it to it) }
         }
         AlertDialog.Builder(this)
@@ -686,7 +686,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
                         if (ok) {
                             toast("已移动")
                             refreshList()
-                        } else toast("移动失败（可能已经在那儿了）")
+                        } else toast("移动失败（可能已在该位置）")
                     }
                 }
             }
@@ -888,22 +888,22 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         AlertDialog.Builder(this)
             .setTitle(t.displayTitle)
             .setItems(arrayOf(
-                "下一首播放", "加到队尾", "加到歌单…", "移动到…", "从曲库删除"
+                "下一首播放", "添加至播放队列", "添加至歌单…", "移动到…", "从音乐库删除"
             )) { _, which ->
                 when (which) {
                     0 -> {
                         PlayerSession.playNextInQueue(t)
-                        toast("已加入：下一首播放")
+                        toast("已添加：下一首播放")
                     }
                     1 -> {
                         PlayerSession.addToQueue(listOf(t))
-                        toast("已加到队尾")
+                        toast("已添加至播放队列")
                     }
                     2 -> PlaylistPicker.show(this, listOf(t))
                     3 -> askMoveTo(t)
                     4 -> AlertDialog.Builder(this)
-                        .setTitle("从曲库删除？")
-                        .setMessage("文件会被真正删掉，无法恢复。")
+                        .setTitle("从音乐库删除？")
+                        .setMessage("文件将被彻底删除，无法恢复。")
                         .setPositiveButton("删除") { _, _ ->
                             io.execute {
                                 Library.delete(t)

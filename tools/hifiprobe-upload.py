@@ -269,7 +269,7 @@ def collect_inputs(paths):
     for rel, group in sorted(by_rel.items()):
         if len(group) > 1:
             unreadable.append((display_path(group[0].local),
-                               "和另外 %d 个文件重名（都叫 %s）—— 传到手机后只会剩下一个。"
+                               "和另外 %d 个文件重名（都叫 %s）—— 上传至手机后只会剩下一个。"
                                "分开传，或者先把它们放进各自的文件夹"
                                % (len(group) - 1, rel.rsplit("/", 1)[-1])))
 
@@ -404,7 +404,7 @@ def parse_dirs(body):
       前缀用的那种形式。
 
     ★★ 这一步**必须**有结果。返回空列表意味着重名预检形同虚设，而且不会有任何报错
-      —— 调用方至少要把它显示出来（"库里已有 N 个目录"），空的那一眼就能看见。
+      —— 调用方至少要把它显示出来（"音乐库中已有 N 个目录"），空的那一眼就能看见。
     """
     dirs = [d for d in DIR_RADIO.findall(body) if d]
     if not dirs:
@@ -704,7 +704,9 @@ def find_conflict(items, dest_dir, have, newdir=""):
     haveset = set(have)
     if newdir:
         if newdir in haveset:
-            return "目录「%s」已存在 —— 请把它选为「上传到」的目标，或换个名字" % newdir
+            # ★ 措辞**和服务端保持一致** —— 用户看到的应该是同一句话，
+            #   不管是客户端预检拦下的还是服务端拒的
+            return "目录「%s」已存在。请将其选为「上传到」的目标，或更换名称。" % newdir
         base = newdir
     else:
         base = dest_dir
@@ -716,8 +718,8 @@ def find_conflict(items, dest_dir, have, newdir=""):
         for j in range(len(segs) - 1):          # 最后一段是文件名，不查
             cur = (pre + "/" + segs[j]) if pre else segs[j]
             if cur in haveset:
-                return ("目录「%s」已存在 —— 请把它选为「上传到」的目标再传，"
-                        "或换个文件夹名" % segs[j])
+                return ("目录「%s」已存在。请将其选为「上传到」的目标后重新上传，"
+                        "或更换文件夹名称。" % segs[j])
             pre = cur
     return None
 
@@ -790,7 +792,7 @@ def do_scan(port):
     found = scan_lan(port, on_note=lambda s: print("  " + s))
     print()
     if not found:
-        print("没找到。检查：")
+        print("未找到。请检查：")
         print("  ① 手机 App 是否开着，且「设置 → 无线传输」开关是开的")
         print("  ② 手机和电脑是否在同一个网络")
         print("  ③ 手机是不是用 USB 网络共享连的（那样地址通常是 192.168.42.129）")
@@ -798,13 +800,13 @@ def do_scan(port):
     print("找到 %d 台：" % len(found))
     for ip, desc in found:
         print("  http://%s:%d/    %s" % (ip, port, desc))
-    print("\n把这个地址填给 --host 即可。")
+    print("\n把这个地址填入 --host 即可。")
     return 0
 
 
 def main():
     ap = argparse.ArgumentParser(
-        description="把电脑上的音乐文件夹传到手机的音乐库（自己读文件，不经过浏览器）",
+        description="把电脑上的音乐文件夹上传至手机的音乐库（自己读文件，不经过浏览器）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="接口契约见 docs/06-HTTP接口.md。手机 App 无需任何改动。",
     )
@@ -812,7 +814,7 @@ def main():
                     help="要上传的本地文件夹或单个文件，可以给多个（--scan 时可以省略）")
     ap.add_argument("--host", help="手机地址，可以是 192.168.42.129 或 192.168.42.129:8765")
     ap.add_argument("--port", type=int, default=8765, help="端口，默认 8765")
-    ap.add_argument("--dest", default="", help="传到音乐库里的哪个子目录（默认：库根）")
+    ap.add_argument("--dest", default="", help="上传至音乐库里的哪个子目录（默认：库根）")
     ap.add_argument("--newdir", default="",
                     help="先新建这个目录再传进去（和 --dest 二选一，这个优先）")
     ap.add_argument("--dry-run", action="store_true",
@@ -862,7 +864,7 @@ def main():
 
     # ★ "传完了" ≠ "传全了" —— 被跳过的必须报出来，不能静默
     if skipped:
-        print("\n  ⚠ 有 %d 个文件看着是音频，但音乐库**放不了**，已跳过：" % len(skipped))
+        print("\n  ⚠ 有 %d 个文件疑似音频文件，但音乐库**不支持**，已跳过：" % len(skipped))
         for path, _ext in skipped[:10]:
             print("     · %s" % path)
         if len(skipped) > 10:
@@ -873,7 +875,7 @@ def main():
     ok, bad = preflight(files, unreadable)
 
     if bad:
-        print("\n  ⚠ 有 %d 个文件读不了，**上传前**就能看到：" % len(bad))
+        print("\n  ⚠ 有 %d 个文件无法读取，**上传前**就能看到：" % len(bad))
         for path, why in bad[:15]:
             mark = "  [%d 字符]" % len(path) if len(path) >= 260 else ""
             print("     · %s%s\n       %s" % (path, mark, why))
@@ -909,13 +911,13 @@ def main():
     try:
         desc, have = probe_full(host, port)
         print("  ✓ %s" % desc)
-        print("  库里已有 %d 个目录" % len(have))
+        print("  音乐库中已有 %d 个目录" % len(have))
     except NotYuHifi as e:
         print("\n  ✗ %s 上确实有 HTTP 服务，但**不是** yuHIFI（%s）。" % (host, e))
         print("    为了不把音乐发到别人的机器上，已中止。检查一下地址。")
         return 2
     except OSError as e:
-        print("\n  ✗ 连不上 %s:%d —— %s" % (host, port, e))
+        print("\n  ✗ 无法连接 %s:%d —— %s" % (host, port, e))
         print("    检查：① 手机和电脑在同一个网络 ② App 里「无线传输」开着 ③ 地址对不对")
         print("    不知道地址的话：python %s --scan" % os.path.basename(__file__))
         return 2
@@ -932,7 +934,7 @@ def main():
     if bad_dir:
         print("\n  ✗ %s" % bad_dir)
         print("    （服务端规则：一次请求里不允许新建已存在的同名目录。）")
-        print("    一个字节都没发。把 --dest 指到那个已存在的目录，或者给源文件夹换个名。")
+        print("    一个字节都没发。把 --dest 指到那个已存在的目录，或者给源文件夹更换名称。")
         return 1
 
     print("\n[4/4] 上传到 %s:%d …" % (host, port))
@@ -951,12 +953,12 @@ def main():
     print("\n服务端回复：%s" % msg)
     if not success:
         print("\n✗ 服务端拒绝了这次上传。上面的原话就是原因 —— 最常见的是")
-        print("  「目录已存在」，那就把 --dest 指到那个已存在的目录，或者给源文件夹换个名。")
+        print("  「目录已存在」，那就把 --dest 指到那个已存在的目录，或者给源文件夹更换名称。")
         return 1
 
     print("\n✓ 完成：%d 个文件，%s" % (len(ok), human(total_bytes)))
     if bad:
-        print("  有 %d 个文件没参与上传（见上面清单）。" % len(bad))
+        print("  有 %d 个文件未参与上传（见上面清单）。" % len(bad))
     return 0
 
 

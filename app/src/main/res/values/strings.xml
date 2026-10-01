@@ -25,24 +25,27 @@
     <string name="nav_library">音乐库</string>
     <string name="nav_settings">设置</string>
     <string name="nav_now_playing">正在播放</string>
+    <!-- 正在播放页的横竖屏切换（p67 之后加的） -->
+    <string name="action_landscape">横屏</string>
+    <string name="action_portrait">竖屏</string>
     <string name="nav_diagnostics">诊断</string>
 
     <!-- 动作 -->
     <string name="action_import">导入</string>
-    <string name="action_wireless">无线</string>
-    <string name="action_new_folder">新建</string>
-    <string name="action_queue">队列</string>
+    <string name="action_wireless">无线传输</string>
+    <string name="action_new_folder">新建文件夹</string>
+    <string name="action_queue">播放队列</string>
     <string name="action_move_up">上移</string>
     <string name="action_move_down">下移</string>
     <string name="action_remove">移除</string>
-    <string name="action_clear_upcoming">清空未播放</string>
+    <string name="action_clear_upcoming">清除未播放曲目</string>
     <string name="action_play">播放</string>
     <!--
       多选状态下"播放选中的这些"。
       语义和点单曲一致：**队列 = 选中的这些，从第一首开始** ——
       不引入"选中就变成临时列表"这种特例。
     -->
-    <string name="action_play_selected">播放选中</string>
+    <string name="action_play_selected">播放选中项</string>
     <string name="action_close">关闭</string>
 
     <!--
@@ -81,21 +84,14 @@
     <string name="action_select">多选</string>
     <string name="action_select_all">全选</string>
     <string name="action_deselect_all">取消全选</string>
-    <string name="action_cancel_selection">取消选择</string>
-    <string name="action_add_to_playlist_short">加到歌单…</string>
+    <string name="action_cancel_selection">取消多选</string>
+    <string name="action_add_to_playlist_short">添加至歌单…</string>
     <string name="action_move_to">移动…</string>
     <string name="action_delete_selected">删除</string>
     <string name="sel_count_fmt">已选 %1$d 项</string>
     <string name="action_back">返回</string>
-    <string name="action_connect">点这里连接</string>
+    <string name="action_connect">连接</string>
     <string name="action_retry">重试</string>
-    <!--
-      正在播放页的横竖屏切换按钮。竖屏布局上写「横屏」，横屏布局上写「竖屏」——
-      文案说的是**按下去会发生什么**，不是"当前是什么状态"。
-      ★ 两者都是"动作"而不是"状态"，所以别写成「已横屏」那种。
-    -->
-    <string name="action_landscape">横屏</string>
-    <string name="action_portrait">竖屏</string>
 
     <!--
       解码器状态条（只在首页）。
@@ -112,32 +108,29 @@
     <!-- 设备没报产品名时的兜底称呼，以及 lastMessage 意外为空时的兜底 -->
     <string name="device_generic">USB 解码器</string>
     <string name="device_unknown">未知原因</string>
-    <string name="hint_queue_edit">按住左侧把手可以拖动排序。点一行直接跳过去播放。</string>
+    <string name="hint_queue_edit">按住左侧把手可拖动排序；点击曲目可跳转播放。</string>
 
     <!-- 歌单 / 专辑 -->
     <string name="action_new_playlist">新建歌单</string>
     <string name="action_rename">重命名</string>
-    <string name="action_add_to_playlist">加到歌单…</string>
+    <string name="action_add_to_playlist">添加至歌单…</string>
     <string name="cd_enter">进入</string>
-    <string name="hint_all_songs">右侧字母可以快速跳转</string>
+    <string name="hint_all_songs">右侧字母索引可快速跳转</string>
 
     <!-- 空态与提示 -->
-    <string name="empty_library">库还是空的\n\n点右上角「导入」从手机里选，\n或用「无线」从电脑浏览器上传</string>
-    <string name="hint_no_device">尚未连接 USB 设备 —— 插上解码器后会自动接管</string>
+    <string name="empty_library">音乐库为空。\n\n可通过右上角「导入」从本机选择文件，\n或通过「无线传输」在电脑浏览器中上传。</string>
+    <string name="hint_no_device">尚未连接 USB 解码器 —— 连接后会自动接管</string>
     <string name="hint_not_playing">未在播放</string>
-    <!--
-      没有歌曲在播放时的空态文案。首页播放条和正在播放页**共用这一句**。
+    <string name="empty_all_songs">曲库为空。\n\n请先在「音乐库」中导入曲目。</string>
+    <string name="empty_albums">暂无专辑。\n\n曲目按专辑标签分组显示。</string>
+    <string name="empty_playlists">暂无歌单。\n\n新建歌单以收藏曲目。</string>
 
-      ★ 必须共用：播放条常驻之后，用户从条上点进播放页，两边说的话得一样。
-        一边写「没有歌曲在播放」另一边写「未在播放」，看起来像两个不同的状态。
+    <!-- 首页常驻播放条（p67 之后加的） -->
+    <string name="mini_none">尚无曲目在播放</string>
 
-      ★ 进 strings.xml 而不是硬编码在 Kotlin 里：两条线（main 口语 /
-        release 正式文体）就是靠这个文件分叉的，硬编码将来正式化时必漏。
-    -->
-    <string name="mini_none">没有歌曲在播放</string>
-    <string name="empty_all_songs">曲库是空的\n\n先到「音乐库」导入几首歌</string>
-    <string name="empty_albums">还没有专辑\n\n曲目的专辑标签决定它们怎么分组</string>
-    <string name="empty_playlists">还没有歌单\n\n新建一个，把喜欢的歌攒起来</string>
+    <!-- 歌词（p67 之后加的） -->
+    <string name="label_lyrics">歌词</string>
+    <string name="lyrics_none">本曲目没有内嵌歌词</string>
     <string name="unknown_album">未知专辑</string>
 
     <!-- 传输状态 -->
@@ -184,7 +177,7 @@
          是"这个功能对一整类文件完全无效"。不写醒目点，
          用户放 DSD 时发现滑条不动，会当成 bug 报回来。
     -->
-    <string name="volume_dsd_warning">DSD 原生播放（dsf / dff）不走 PCM，音量控制对它无效 —— 放 DSD 时滑条和输入框都不起作用。</string>
+    <string name="volume_dsd_warning">DSD 原生播放（dsf / dff）不经过 PCM，音量控制对其无效 —— 播放 DSD 时滑条与输入框均不起作用。</string>
     <!--
       音量锁。锁上之后滑条和输入框都变灰不可动（用户 2026-09-29 选的是 A）。
 
@@ -195,7 +188,7 @@
     <!-- 锁上时播放页数值那一格的字头。★ 光变灰不够，得让人看出是"锁着"而不是"坏了" -->
     <string name="volume_locked_prefix">已锁定</string>
     <!-- 设置页锁上时的说明 -->
-    <string name="volume_locked_hint">已锁定 —— 三根滑条和三个输入框都锁住了。要调先把「音量锁」关掉。</string>
+    <string name="volume_locked_hint">已锁定 —— 三根滑条与三个输入框均已锁定。如需调整，请先关闭「音量锁」。</string>
 
     <!--
       后台无限制（2026-09-29 加）。
@@ -206,17 +199,17 @@
         跳错地方比不跳更让人困惑。所以这里是**把路径写清楚**。
     -->
     <string name="bg_unrestricted">后台无限制</string>
-    <string name="bg_unrestricted_title">让播放能在后台活下去</string>
-    <string name="bg_unrestricted_msg">不设置的话，系统会在后台把 yuHIFI 杀掉，音乐就断了。
+    <string name="bg_unrestricted_title">确保后台播放不被系统终止</string>
+    <string name="bg_unrestricted_msg">若未设置，系统将在后台终止 yuHIFI，播放随之中断。
 
 小米 / HyperOS：
   设置 → 应用管理 → yuHIFI → 省电策略 → 无限制
-  再把同一页的「自启动」打开
+  并在同一页面开启「自启动」
 
 其他机型：
   设置 → 电池 → 电池优化 → 找到 yuHIFI → 不优化
 
-★ 页面里读到的状态在小米上不一定准 —— 以系统里实际显示为准。</string>
+★ 本页读到的状态在小米机型上不一定准确 —— 请以系统中实际显示为准。</string>
     <string name="action_app_details">打开应用详情页</string>
     <string name="action_reconnect">重新连接</string>
     <!--
@@ -240,25 +233,15 @@
     <string name="state_resampling">重采样</string>
     <string name="state_idle">已停止</string>
     <string name="label_source">源</string>
-    <!--
-      正在播放页底部那两个可切换的页。「源」复用上面的 label_source。
-    -->
-    <string name="label_lyrics">歌词</string>
-    <!--
-      没有内嵌歌词时的空态。
-      ★ 说清楚是"**这首**没有"，而不是"功能坏了" —— 用户库里 1111/2923 首有歌词，
-        碰到没有的很正常。
-    -->
-    <string name="lyrics_none">这首没有内嵌歌词</string>
     <string name="label_output">输出</string>
     <string name="label_buffer">缓冲</string>
     <string name="label_underrun">欠载</string>
     <string name="label_queue">队列</string>
 
     <!-- 循环模式 -->
-    <string name="repeat_off">循环:关</string>
-    <string name="repeat_all">循环:全部</string>
-    <string name="repeat_one">循环:单曲</string>
-    <string name="shuffle_on">随机:开</string>
-    <string name="shuffle_off">随机</string>
+    <string name="repeat_off">循环：关</string>
+    <string name="repeat_all">循环：全部</string>
+    <string name="repeat_one">循环：单曲</string>
+    <string name="shuffle_on">随机：开</string>
+    <string name="shuffle_off">随机：关</string>
 </resources>

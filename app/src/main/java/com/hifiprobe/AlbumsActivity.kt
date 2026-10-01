@@ -222,7 +222,7 @@ class AlbumsActivity : AppCompatActivity(), PlayerSession.Listener {
     private fun albumMenu(a: Library.Album) {
         AlertDialog.Builder(this)
             .setTitle(a.name)
-            .setItems(arrayOf("播放整张", "整张加到队尾", "整张加到歌单…")) { _, which ->
+            .setItems(arrayOf("播放整张", "整张添加至播放队列", "整张添加至歌单…")) { _, which ->
                 when (which) {
                     0 -> {
                         PlayerSession.setQueue(a.tracks, 0)
@@ -230,7 +230,7 @@ class AlbumsActivity : AppCompatActivity(), PlayerSession.Listener {
                     }
                     1 -> {
                         PlayerSession.addToQueue(a.tracks)
-                        toast("已把 ${a.size} 首加到队尾")
+                        toast("已将 ${a.size} 首添加至播放队列")
                     }
                     2 -> PlaylistPicker.show(this, a.tracks)
                 }

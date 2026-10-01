@@ -424,11 +424,11 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
             if (PlayerSession.state == PlayerSession.State.PLAYING) R.drawable.ic_pause
             else R.drawable.ic_play
         )
-        btnShuffle.text = if (PlayerSession.queue.shuffle) "随机:开" else "随机"
+        btnShuffle.text = if (PlayerSession.queue.shuffle) "随机：开" else "随机"
         btnRepeat.text = when (PlayerSession.queue.repeatMode) {
-            RepeatMode.OFF -> "循环:关"
-            RepeatMode.ALL -> "循环:全部"
-            RepeatMode.ONE -> "循环:单曲"
+            RepeatMode.OFF -> "循环：关"
+            RepeatMode.ALL -> "循环：全部"
+            RepeatMode.ONE -> "循环：单曲"
         }
 
         setControlsEnabled(true)

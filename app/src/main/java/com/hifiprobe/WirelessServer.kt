@@ -193,7 +193,7 @@ object WirelessServer {
                         val body = readBody(input, headers)
                         val name = formValue(body, "name")?.trim()
                         val msg = if (name.isNullOrBlank()) {
-                            "文件夹名不能为空"
+                            "文件夹名称不能为空"
                         } else {
                             val dir = File(Library.root, name)
                             when {
@@ -205,7 +205,7 @@ object WirelessServer {
                                  *   原来这里只是 mkdirs() 返回 false → 报一句含糊的
                                  *   「新建失败」，用户根本不知道是重名。
                                  */
-                                dir.exists() -> "目录「${dir.name}」已存在 —— 换个名字"
+                                dir.exists() -> "目录「${dir.name}」已存在。请更换名称。"
 
                                 dir.mkdirs() -> {
                                     runCatching { Library.refresh() }
@@ -342,16 +342,16 @@ object WirelessServer {
             val d = if (!nd.isNullOrEmpty()) {
                 val seg = safeSegment(nd)
                 if (seg == null) {
-                    error = "文件夹名不合法：$nd"
+                    error = "文件夹名称不合法：$nd"
                     return null
                 }
                 val f = File(Library.root, seg)
                 if (f.exists()) {
-                    error = "目录「$seg」已存在 —— 请把它选为「上传到」的目标再传，或换个文件夹名"
+                    error = "目录「$seg」已存在。请将其选为「上传到」的目标后重新上传，或更换文件夹名称。"
                     return null
                 }
                 if (!f.mkdirs()) {
-                    error = "建不了目录「$seg」"
+                    error = "无法创建目录「$seg」"
                     return null
                 }
                 createdDirs.add(f.canonicalPath)
@@ -392,15 +392,15 @@ object WirelessServer {
                 val next = File(dir, c)
                 if (next.isDirectory) {
                     if (next.canonicalPath !in createdDirs) {
-                        error = "目录「$c」已存在 —— 请把它选为「上传到」的目标再传，或换个文件夹名"
+                        error = "目录「$c」已存在。请将其选为「上传到」的目标后重新上传，或更换文件夹名称。"
                         return false
                     }
                 } else if (next.exists()) {
-                    error = "「$c」已经被一个同名文件占用了"
+                    error = "「$c」已被一个同名文件占用"
                     return false
                 } else {
                     if (!next.mkdir()) {
-                        error = "建不了目录「$c」"
+                        error = "无法创建目录「$c」"
                         return false
                     }
                     createdDirs.add(next.canonicalPath)
@@ -427,7 +427,7 @@ object WirelessServer {
             val stream = try {
                 p.outputStream()
             } catch (e: Exception) {
-                error = "写不了文件：${e.message}"
+                error = "无法写入文件：${e.message}"
                 return false
             }
             target = t
@@ -475,7 +475,7 @@ object WirelessServer {
                         val mi = indexOf(data, marker, 0)
                         if (mi < 0) {
                             if (!readMore()) break
-                            if (buf.size() > MAX_HEAD) { error = "找不到 multipart 边界"; break }
+                            if (buf.size() > MAX_HEAD) { error = "未找到 multipart 边界"; break }
                             continue
                         }
                         var p = mi + marker.size
@@ -527,7 +527,7 @@ object WirelessServer {
                         if (fileMatch != null && fileMatch.isNotBlank()) {
                             closeCurrent(true)
                             if (error == null && !openTarget(fileMatch) && error == null) {
-                                error = "开不了目标文件：$fileMatch"
+                                error = "无法打开目标文件：$fileMatch"
                             }
                             // ★ 即使开失败也要进 PS_BODY 把这段正文读完 ——
                             //   否则流会停在半个 part 上，后面全部错位
@@ -815,7 +815,7 @@ object WirelessServer {
                 "<form id=$id method=post action=/delete>" +
                         "<input type=hidden name=path value=\"${esc(target)}\"></form>"
             )
-            return "<button class=d type=submit form=$id>删</button>"
+            return "<button class=d type=submit form=$id>删除</button>"
         }
 
         val rows = StringBuilder()
@@ -904,7 +904,7 @@ object WirelessServer {
 
             dirTree.append("<div class=dt>").append(radio("", "（根目录）")).append("</div>")
             render("")
-            if (kids.isEmpty()) dirTree.append("<div class=sub>库里还没有子目录</div>")
+            if (kids.isEmpty()) dirTree.append("<div class=sub>音乐库中尚无子目录</div>")
         }
 
         /*
@@ -955,12 +955,12 @@ object WirelessServer {
  .dr:hover{background:#1b232d}
 </style></head><body>
 <h1>yuHIFI 音乐库</h1>
-<div class=sub>${Library.size()} 首 · ${totalBytes / 1024 / 1024} MB</div>
+<div class=sub>${Library.size()} 首曲目 · ${totalBytes / 1024 / 1024} MB</div>
 ${msgBanner(msg)}
 <div class=card>
  <form method=post action=/upload enctype=multipart/form-data id=f>
   <div class=drop id=drop>
-    把音乐文件<b>或整个文件夹</b>拖到这里
+    将音乐文件<b>或整个文件夹</b>拖放至此处
     <div style="margin-top:10px">
       <input type=file id=pickFiles multiple accept="audio/*,.flac,.dsf,.dff,.m4a,.ape,.wv">
       或 <input type=file id=pickDir webkitdirectory multiple>
@@ -978,13 +978,13 @@ ${msgBanner(msg)}
 </div>
 <div class=card>
  <form method=post action=/mkdir style=display:flex;align-items:center;gap:8px>
-  <input name=name placeholder="新建文件夹名" style=flex:1>
+  <input name=name placeholder="新建文件夹名称" style=flex:1>
   <button type=submit>新建</button>
  </form>
 </div>
 <div class=card>
  <div class=tree>$rows</div>
- ${if (files.none()) "<div class=sub>库还是空的，从上面传点东西进来吧</div>" else ""}
+ ${if (files.none()) "<div class=sub>音乐库尚为空，请从上方上传文件。</div>" else ""}
  $hiddenForms
 </div>
 <script>
@@ -1033,15 +1033,15 @@ Array.prototype.forEach.call(document.querySelectorAll('input[name=dir]'),functi
 function errSuffix(){
   if(!pickErrors.length) return '';
   /* 注意：这里是 textContent，写 **粗体** 只会原样显示星号，不要用 markdown */
-  return '　⚠ 另有 '+pickErrors.length+' 个文件「读不出来，已跳过」：'+
+  return '　⚠ 另有 '+pickErrors.length+' 个文件「无法读取，已跳过」：'+
     pickErrors.slice(0,3).join('、')+(pickErrors.length>3?' …':'')+
-    '。常见原因：路径超过 Windows 260 字符上限、文件被移动或改名、网盘占位文件。'+
-    '把音乐放到更短的路径（例如 C:\\Music\\）通常能解决。';
+    '。常见原因：路径超过 Windows 260 字符上限、文件已被移动或重命名、网盘占位文件。'+
+    '将音乐文件放置到更短的路径（例如 C:\\Music\\）通常可以解决。';
 }
 
 function showPicked(){
   if(!picks.length){
-    el('picked').textContent='还没选文件'+errSuffix();
+    el('picked').textContent='尚未选择文件'+errSuffix();
     return;
   }
   var dirs={};
@@ -1049,7 +1049,7 @@ function showPicked(){
     var d=p.path.split('/').slice(0,-1).join('/');
     dirs[d]=1;
   });
-  el('picked').textContent='已选 '+picks.length+' 个音频文件 · '+
+  el('picked').textContent='已选择 '+picks.length+' 个音频文件 · '+
     Object.keys(dirs).length+' 个目录（'+Object.keys(dirs).slice(0,3).join('、')+
     (Object.keys(dirs).length>3?' …':'')+'）'+errSuffix();
 }
@@ -1104,7 +1104,7 @@ function collect(entries,cb){
             kids.forEach(function(k){walk(k,p)});
             release();
           }else{ kids=kids.concat([].slice.call(es)); readAll(); }
-        }, fail(prefix+entry.name+'/（整个目录读不出来）'));
+        }, fail(prefix+entry.name+'/（整个目录无法读取）'));
       })();
     }else{ release(); }
   }
@@ -1127,7 +1127,7 @@ d.addEventListener('drop',function(e){
   prog('正在读取…');
   collect(es,function(list,bad){
     setPicks(list,bad);
-    prog(bad.length ? ('有 '+bad.length+' 个文件读不出来 —— 已跳过，详见上方提示') : '');
+    prog(bad.length ? ('有 '+bad.length+' 个文件无法读取，已跳过，详见上方提示') : '');
   });
 });
 
@@ -1143,14 +1143,14 @@ function conflict(){
   var nd=document.querySelector('input[name=newdir]').value.trim();
   var have={}; HAVE.forEach(function(x){have[x]=1});
   if(nd && have[nd])
-    return '目录「'+nd+'」已存在 —— 请把它选为「上传到」的目标，或换个名字';
+    return '目录「'+nd+'」已存在。请将其选为「上传到」的目标，或更换名称。';
   for(var i=0;i<picks.length;i++){
     var segs=picks[i].path.split('/');
     var pre = nd || sel;                       // 目标目录作为前缀
     for(var j=0;j<segs.length-1;j++){
       var cur = pre ? (pre+'/'+segs[j]) : segs[j];
       if(have[cur])
-        return '目录「'+segs[j]+'」已存在 —— 请把它选为「上传到」的目标再传，或换个文件夹名';
+        return '目录「'+segs[j]+'」已存在。请将其选为「上传到」的目标后重新上传，或更换文件夹名称。';
       pre = cur;
     }
   }
@@ -1159,7 +1159,7 @@ function conflict(){
 
 el('f').addEventListener('submit',function(ev){
   ev.preventDefault();
-  if(!picks.length){ prog('还没选文件'); return; }
+  if(!picks.length){ prog('尚未选择文件'); return; }
   var bad=conflict();
   if(bad){ prog(bad); return; }
 
@@ -1190,7 +1190,7 @@ el('f').addEventListener('submit',function(ev){
      *   而那正是"以为传全了"的那一刻。消息放进 URL 才活得过去。
      */
     if(pickErrors.length){
-      m += '　⚠ 另有 '+pickErrors.length+' 个文件读不出来、没有上传：'+
+      m += '　⚠ 另有 '+pickErrors.length+' 个文件无法读取、未上传：'+
            pickErrors.slice(0,3).join('、')+(pickErrors.length>3?' …':'')+
            '（常见原因：路径超过 Windows 260 字符上限）';
     }
@@ -1205,10 +1205,10 @@ el('f').addEventListener('submit',function(ev){
    *   一句错话让人往错的方向查一整轮 —— 所以这里把两类原因都列出来。
    */
   x.onerror=function(){
-    prog('上传失败：浏览器没能把文件发出去。两种常见原因 —— '+
-         '① 本地文件读不出来（路径超过 Windows 260 字符上限、文件被移动或改名、网盘占位文件）；'+
-         '② 网络断了。若是 ①，把音乐放到更短的路径（例如 C:\\Music\\）再试；'+
-         '如果是拖进来的，注意上方提示里有没有被跳过的文件。');
+    prog('上传失败：浏览器未能将文件发送出去。两种常见原因：'+
+         '① 本地文件无法读取（路径超过 Windows 260 字符上限、文件已被移动或重命名、网盘占位文件）；'+
+         '② 网络中断。若为 ①，请将音乐文件放置到更短的路径（例如 C:\\Music\\）后重试；'+
+         '若为拖放导入，请留意上方提示中是否有被跳过的文件。');
   };
   x.open('POST','/upload'); x.send(fd);
 });

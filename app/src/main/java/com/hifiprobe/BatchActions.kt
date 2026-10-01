@@ -43,7 +43,7 @@ object BatchActions {
     ) {
         if (tracks.isEmpty() && folders.isEmpty()) return
         val dirs = buildList {
-            add("" to "（库根目录）")
+            add("" to "（音乐库根目录）")
             Library.folders().forEach { add(it to it) }
         }
         val what = buildString {
@@ -54,7 +54,7 @@ object BatchActions {
             }
         }
         AlertDialog.Builder(act)
-            .setTitle("把 $what 移到")
+            .setTitle("将 $what 移动至")
             .setItems(dirs.map { it.second }.toTypedArray()) { _, which ->
                 val to = dirs[which].first
                 // 先搬文件夹再搬散歌：文件夹搬走之后，原本在它里面的歌
@@ -62,12 +62,12 @@ object BatchActions {
                 val nf = Library.moveFolders(folders, to)
                 val ns = Library.moveTracks(tracks, to)
                 val msg = buildString {
-                    if (ns > 0) append("移动了 $ns 首")
+                    if (ns > 0) append("已移动 $ns 首")
                     if (nf > 0) {
                         if (isNotEmpty()) append("、")
                         append("$nf 个文件夹")
                     }
-                    if (isEmpty()) append("没有可移动的（可能已经在那儿了）")
+                    if (isEmpty()) append("没有可移动的项（可能已在目标位置）")
                 }
                 toast(act, msg)
                 onDone()
@@ -86,12 +86,12 @@ object BatchActions {
         AlertDialog.Builder(act)
             .setTitle("删除 ${tracks.size} 首？")
             .setMessage(
-                "文件会从曲库里真正删掉，无法恢复。\n" +
-                        "引用了它们的歌单会一并去掉这些条目。"
+                "文件将从音乐库中彻底删除，无法恢复。\n" +
+                        "引用这些曲目的歌单将一并移除相应条目。"
             )
             .setPositiveButton("删除") { _, _ ->
                 val n = Library.deleteAll(tracks)
-                toast(act, if (n == tracks.size) "已删除 $n 首" else "删除了 $n 首（${
+                toast(act, if (n == tracks.size) "已删除 $n 首" else "已删除 $n 首（${
                     tracks.size - n
                 } 首失败）")
                 onDone()

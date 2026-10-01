@@ -24,7 +24,7 @@ object PlaylistPicker {
 
         // 一个歌单都没有 → 直接进新建，不摆一个空列表
         if (lists.isEmpty()) {
-            askNewThenAdd(activity, tracks, onDone, title = "还没有歌单，先建一个")
+            askNewThenAdd(activity, tracks, onDone, title = "尚未创建歌单，请先创建一个。")
             return
         }
 
@@ -43,7 +43,7 @@ object PlaylistPicker {
         }.toTypedArray()
 
         AlertDialog.Builder(activity)
-            .setTitle(if (tracks.size == 1) "加到哪个歌单" else "把 ${tracks.size} 首加到哪个歌单")
+            .setTitle(if (tracks.size == 1) "添加至哪个歌单" else "将 ${tracks.size} 首添加至哪个歌单")
             .setItems(names) { _, which ->
                 if (which == 0) {
                     askNewThenAdd(activity, tracks, onDone)
@@ -52,8 +52,8 @@ object PlaylistPicker {
                 val p = lists[which - 1]      // ★ 减 1：第 0 项是「新建」
                 val n = Playlists.add(p.id, tracks)
                 // 如实说"一首都没加" —— 全都重复时静默成功，用户会以为加漏了
-                val msg = if (n == 0) "这些歌都已经在「${p.name}」里了"
-                else "「${p.name}」已加入 $n 首"
+                val msg = if (n == 0) "这些曲目均已在「${p.name}」中"
+                else "已将 $n 首添加至「${p.name}」"
                 toast(activity, msg)
                 onDone?.invoke(msg)
             }
@@ -79,10 +79,10 @@ object PlaylistPicker {
             .setPositiveButton("创建并加入") { _, _ ->
                 val p = Playlists.create(input.text.toString())
                 if (p == null) {
-                    toast(activity, "名字为空或已存在")
+                    toast(activity, "名称为空或已存在")
                 } else {
                     val n = Playlists.add(p.id, tracks)
-                    val msg = "「${p.name}」已加入 $n 首"
+                    val msg = "已将 $n 首添加至「${p.name}」"
                     toast(activity, msg)
                     onDone?.invoke(msg)
                 }

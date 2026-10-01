@@ -338,8 +338,18 @@ class PlaybackService : Service(), PlayerSession.Listener {
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
         this, 0,
-        Intent(this, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        /*
+         * ★★ 正式版**不能跳诊断页** —— 那是内部版的调试入口，
+         *    普通用户点一下通知落到一个满是 URB、描述符的页面上，只会莫名其妙。
+         *    正式版跳首页（那里有正在播放的迷你条）。
+         *
+         *    ★ 内部版保持原样：开发时从通知直接进诊断页挺方便。
+         */
+        Intent(
+            this,
+            if (diagnosticsEnabled(this)) MainActivity::class.java
+            else HomeActivity::class.java
+        ).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
 

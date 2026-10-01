@@ -379,7 +379,7 @@ object DeviceGate {
             }
             val h = NativePlayer.nativeOpen(-1)
             if (h == 0L) {
-                finish(false, "建不出原生上下文: ${NativePlayer.nativeLastError()}")
+                finish(false, "无法创建原生上下文：${NativePlayer.nativeLastError()}")
                 return
             }
             PlayerSession.attachEngineOnly(h)
@@ -401,7 +401,7 @@ object DeviceGate {
 
         val dev = findAudioDevice(app)
         if (dev == null) {
-            finish(false, "直连模式需要小尾巴，但没找到 USB 解码器")
+            finish(false, "直连模式需要 USB 解码器，但未检测到设备。")
             return
         }
 
@@ -445,7 +445,7 @@ object DeviceGate {
                 val h = NativePlayer.nativeOpen(conn.fileDescriptor)
                 if (h == 0L) {
                     runCatching { conn.close() }
-                    msg = "libusb 接管失败: ${NativePlayer.nativeLastError()}"
+                    msg = "libusb 接管失败：${NativePlayer.nativeLastError()}"
                 } else {
                     // 描述符解析（纯 Java，不依赖原生库）—— 播放时要靠它挑 alt setting
                     val parsed = runCatching {

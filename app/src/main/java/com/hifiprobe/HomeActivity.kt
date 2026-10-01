@@ -343,7 +343,7 @@ class HomeActivity : AppCompatActivity(), PlayerSession.Listener, DeviceGate.Lis
             runOnUiThread {
                 android.widget.Toast.makeText(
                     this,
-                    if (ok) "已切到 USB 直连（bit-perfect）：$msg" else "切不过去：$msg",
+                    if (ok) "已切换至 USB 直连（bit-perfect）：$msg" else "切换失败：$msg",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
                 renderDevice()
@@ -371,7 +371,7 @@ class HomeActivity : AppCompatActivity(), PlayerSession.Listener, DeviceGate.Lis
         if (h != 0L && NativePlayer.nativeIsPlaying(h)) {
             AlertDialog.Builder(this)
                 .setTitle(getString(R.string.action_reconnect))
-                .setMessage("重新连接要先把当前会话断掉，播放会停。继续吗？")
+                .setMessage("重新连接将先中断当前会话，播放会停止。是否继续？")
                 .setPositiveButton(getString(R.string.action_reconnect)) { _, _ -> doReconnect() }
                 .setNegativeButton("取消", null)
                 .show()
@@ -443,15 +443,15 @@ class HomeActivity : AppCompatActivity(), PlayerSession.Listener, DeviceGate.Lis
             val playlists = Playlists.all()
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
-                tvAllSongsCount.text = if (tracks == 0) "曲库为空" else "$tracks 首"
+                tvAllSongsCount.text = if (tracks == 0) "音乐库为空" else "$tracks 首"
                 tvLibraryCount.text =
                     if (folders == 0) "$tracks 首 · 未分文件夹" else "$tracks 首 · $folders 个文件夹"
                 tvPlaylistCount.text =
-                    if (playlists.isEmpty()) "还没有歌单"
+                    if (playlists.isEmpty()) "尚未创建歌单"
                     else "${playlists.size} 个 · 共 ${playlists.sumOf { it.size }} 首"
-                tvAlbumCount.text = if (albums == 0) "还没有专辑" else "$albums 张"
+                tvAlbumCount.text = if (albums == 0) "尚未创建专辑" else "$albums 张"
                 tvHomeStat.text =
-                    if (tracks == 0) "点「音乐库」导入音乐"
+                    if (tracks == 0) "点击「音乐库」导入音乐"
                     else "$tracks 首 · $albums 张专辑 · ${playlists.size} 个歌单"
             }
         }
