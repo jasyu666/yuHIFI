@@ -19,7 +19,7 @@
 
 ## 简介
 
-多数 Android 音乐应用的音频需经 `AudioFlinger` 混音，44.1kHz 曲库亦常被统一重采样至 48kHz。对于外接 USB 解码器的用户，这意味着送入 DAC 的已非文件中的原始数据。
+多数 Android 音乐应用的音频需经 `AudioFlinger` 混音。对于外接 USB 解码器的用户，这意味着送入 DAC 的已非文件中的原始数据。
 
 yuHIFI 采用另一条路径：
 
