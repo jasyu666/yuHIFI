@@ -15,7 +15,7 @@
   <a href="#架构"><img src="https://img.shields.io/badge/C%2B%2B-17-00599C.svg?logo=cplusplus&amp;logoColor=white" alt="C++"></a>
 </p>
 
-> **本项目采用源码可得（source-available）的非商业许可。** 个人使用、学习、研究与非营利组织使用免费；商业用途须另行取得授权。该许可不属于 OSI 定义的开源许可证，详见[许可](#许可)一节。
+> **本项目采用 PolyForm Noncommercial 1.0.0 许可。** 个人使用、学习、研究与非营利组织使用免费；商业用途须另行取得授权。详见[许可](#许可)一节。
 
 ## 简介
 
