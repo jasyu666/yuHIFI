@@ -49,7 +49,7 @@ android {
          *     所以这一版是 99。两边的 versionCode 绝不能撞车 ——
          *     报告页脚只靠它分辨是哪个构建。
          */
-        versionCode = 117
+        versionCode = 118
         versionName = "0.1-release"
 
         if (!skipNative) {
