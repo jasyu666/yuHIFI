@@ -340,20 +340,36 @@ class MainActivity : AppCompatActivity() {
         }
 
         cbAllowAllRates = findViewById(R.id.cbAllowAllRates)
+        /*
+         * ★★ 和设置页共用同一个值（`Settings.allowAllRates`），而且是**反语义**：
+         *   勾上 = **禁用** 44.1k 家族。
+         *
+         *   这里原来是个**孤岛**：只调 `nativeSetAllowAllStandardRates`，
+         *   既不读设置也不写回去，XML 里还写死 `checked="true"`。后果两个：
+         *     · 在设置页禁用了 44.1k，进诊断页一看还是勾着的 —— **显示的值是错的**
+         *     · 在诊断页改它不进设置，重启 App 又变回去 —— **改了留不住**
+         *
+         * ★ 顺序要紧：**先把界面对到真实值、再接监听器**。
+         *   反过来的话，下面那句 `isChecked = ...` 会被当成"用户改动"，
+         *   触发一次写回 —— 把刚读出来的值又写一遍，还可能相互打架。
+         */
+        cbAllowAllRates.isChecked = !Settings.allowAllRates(this)
         cbAllowAllRates.setOnCheckedChangeListener { _, checked ->
-            NativePlayer.nativeSetAllowAllStandardRates(checked)
+            val allow = !checked                      // 反语义：勾上 = 禁用
+            Settings.setAllowAllRates(this, allow)
+            NativePlayer.nativeSetAllowAllStandardRates(allow)
             append(
                 if (checked) {
-                    "44.1k 家族直通 开——8 个标准速率全部直通，44.1k 曲库不再重采样" +
-                            "（下次打开文件生效）"
-                } else {
-                    "44.1k 家族直通 关——退回旧策略：只走 48k 家族，" +
+                    "禁用 44.1k 家族 开——退回旧策略：只走 48k 家族，" +
                             "44.1k 家族重采样到对应速率（下次打开文件生效）"
+                } else {
+                    "禁用 44.1k 家族 关——8 个标准速率全部直通，" +
+                            "44.1k 曲库不再重采样（下次打开文件生效）"
                 }
             )
         }
-        // 原生层默认也是开，这里把界面初值同步过去
-        NativePlayer.nativeSetAllowAllStandardRates(cbAllowAllRates.isChecked)
+        // 原生层默认也是开，这里把真实值同步过去
+        NativePlayer.nativeSetAllowAllStandardRates(Settings.allowAllRates(this))
 
         cbOutputDump = findViewById(R.id.cbOutputDump)
         cbOutputDump.setOnCheckedChangeListener { _, checked ->
