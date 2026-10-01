@@ -167,18 +167,14 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        section("音质")
-        card { c ->
-            check(c, "信任 44.1k 家族",
-                "8 个标准速率全部直通，音乐库中的 44.1k 曲目不再重采样。实测这 8 个设备" +
-                        "均确实支持（判据为设备自身的 feedback 端点，而非 SET_CUR 回读）。",
-                Settings.allowAllRates(this)) { v ->
-                Settings.setAllowAllRates(this, v)
-                NativePlayer.nativeSetAllowAllStandardRates(v)
-                toast("下次打开文件时生效")
-            }
-        }
-
+        /*
+         * ★★ 「信任 44.1k 家族」原来在这是单独一节（音质），现在**挪进了测试功能**
+         *   并**反过来命名**成「禁用 44.1kHz」（用户 2026-10-01 定）。
+         *
+         *   理由：它本来就是**备用开关** —— 默认行为（信任 8 个标准速率）才是对的，
+         *   实测过设备确实都支持。摆成一个正向的、看着像"功能"的开关，
+         *   只会让人以为关掉更好。改成正向表述「要禁用吗」之后，默认不勾 = 正确行为。
+         */
         section("交叉馈送")
         card { c ->
             check(c, "交叉馈送",
@@ -283,6 +279,27 @@ class SettingsActivity : AppCompatActivity() {
                 Settings.setFollowFeedback(this, v)
                 PlayerSession.handle.takeIf { it != 0L }
                     ?.let { NativePlayer.nativeSetFollowFeedback(it, v) }
+            }
+            divider(c)
+            /*
+             * ★★ 反语义：勾上 = **不信任** 44.1k 家族。
+             *
+             *   存的还是 `allowAllRates`（true = 信任，默认），只是界面反过来说 ——
+             *   这样老用户已存的值语义不变，不用做数据迁移。
+             *   所以下面两处都要取反：`!Settings.allowAllRates(...)` 和 `!v`。
+             *
+             * ★ 它在**测试功能**里 —— 正式版整节是隐藏的（见 [diagnosticsEnabled] 那道闸），
+             *   也就是说正式用户看不到这个开关。这是有意的：它是给我们排查用的，
+             *   正常情况根本不该动。
+             */
+            check(c, "禁用 44.1kHz",
+                "备用开关，正常使用请勿改动。\n" +
+                        "默认关闭：8 个标准速率全部直通，44.1k 曲库不再重采样。\n" +
+                        "开启后仅走 48k 家族 —— 供「某台设备的 44.1k 确实有问题」时现场回退。",
+                !Settings.allowAllRates(this)) { v ->
+                Settings.setAllowAllRates(this, !v)
+                NativePlayer.nativeSetAllowAllStandardRates(!v)
+                toast("下次打开文件生效")
             }
             divider(c)
             check(c, "seek 时丢弃在途数据",
