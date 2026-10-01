@@ -138,8 +138,8 @@
                 android:id="@+id/cbAllowAllRates"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:checked="true"
-                android:text="信任 44.1k 家族（8 个标准速率全直通，44.1k 曲库比特完美；取消则退回旧的重采样策略）"
+                android:checked="false"
+                android:text="禁用 44.1kHz（备用开关。默认不勾 = 8 个标准速率全部直通、44.1k 曲库比特完美；勾选则退回旧的重采样策略）"
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp" />
 
