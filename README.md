@@ -20,6 +20,7 @@
 ## 简介
 
 多数 Android 音乐应用的音频需经 `AudioFlinger` 混音。对于外接 USB 解码器的用户，这意味着送入 DAC 的已非文件中的原始数据。
+- 测试设备：MOONDROP Dawn Pro（2FC6:F06A）、TANCHJIM BUNNY DSP
 
 yuHIFI 采用另一条路径：
 
@@ -219,7 +220,7 @@ LGPL 组件的合规说明（包括静态链接 libusb 仍属合规的理由）�
 
 - [FFmpeg](https://ffmpeg.org/) —— 解码与重采样
 - [libusb](https://libusb.info/) —— USB 访问
-- 测试设备：MOONDROP Dawn Pro（2FC6:F06A）、TANCHJIM BUNNY DSP
+
 
 ## Star 趋势
 
