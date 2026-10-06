@@ -118,6 +118,72 @@
                 android:textSize="11sp" />
         </LinearLayout>
 
+        <!--
+          音量行 —— 插在「时间」和「传输控制」之间（用户 2026-10-06 定）。
+
+          ★★ 这五个控件（rowVolume / seekVolumeNp / tvVolumeNp / btnVolLock /
+             tvVolWarn）以前**只有竖屏布局里有**，横屏一个都没有 ——
+             而 onCreate 是无条件 findViewById + 当场上监听器的，
+             于是横屏一进来就 `UninitializedPropertyAccessException` 闪退。
+             加音量锁那次只改了竖屏，漏了横屏。
+
+          ★ 和竖屏那份结构保持一致：默认 visibility="gone"，
+            只有设置里开了「音量控制」才占位置 —— 横屏本来就矮，
+            默认不出现在这里很重要。
+        -->
+        <LinearLayout
+            android:id="@+id/rowVolume"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/volume_control" />
+
+            <SeekBar
+                android:id="@+id/seekVolumeNp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tvVolumeNp"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:gravity="end" />
+
+            <!-- 两态用两张图（ic_lock / ic_lock_open），不是同一张换颜色 -->
+            <ImageButton
+                android:id="@+id/btnVolLock"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:padding="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/volume_lock"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_lock_open" />
+        </LinearLayout>
+
+        <!-- DSD 警告：只在「音量控制开着 + 当前是 DSD」时出现 -->
+        <TextView
+            android:id="@+id/tvVolWarn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/volume_dsd_warning"
+            android:textColor="@color/error"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

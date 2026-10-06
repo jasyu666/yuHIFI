@@ -46,15 +46,30 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
     private lateinit var seek: SeekBar
 
     // ---- 音量（只在设置里开了「音量控制」时可见）----
-    private lateinit var rowVolume: android.view.View
-    private lateinit var seekVolume: SeekBar
-    private lateinit var tvVolume: TextView
+
+    /*
+     * ★★★ 这五个**必须是可空的**，不能再用 `lateinit`。
+     *
+     *   2026-10-06 横屏闪退的根因就在这里：竖屏布局有它们、横屏布局**一个都没有**，
+     *   而 `findViewById` 对不存在的 id 返回 null —— 赋给 `lateinit var`
+     *   **编译通过、赋值也不报错**，要等**第一次读它**才抛
+     *   `UninitializedPropertyAccessException`，而且栈指向 onCreate。
+     *
+     *   → 表现是"一进播放页就闪退"，栈看着像初始化顺序问题，
+     *     实则是**布局里缺控件**。要绕好大一圈才看得出来。
+     *
+     *   改成可空之后：布局里没有就少接几条线，绝不崩。
+     *   ★ 以后再加布局变体（平板、分栏…）不会再踩这个坑。
+     */
+    private var rowVolume: android.view.View? = null
+    private var seekVolume: SeekBar? = null
+    private var tvVolume: TextView? = null
 
     /** 音量锁开关（两态图标）。★ 见 [renderVolume] */
-    private lateinit var btnVolLock: android.widget.ImageButton
+    private var btnVolLock: android.widget.ImageButton? = null
 
     /** ④ DSD 警告。★ 只在"音量控制开着 + 当前这首是 DSD"时可见 */
-    private lateinit var tvVolWarn: TextView
+    private var tvVolWarn: TextView? = null
 
     /*
      * ★ 这里原来有个 `volSteps = 200` 的常量，已删除 ——
@@ -263,19 +278,20 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
          * 锁：点一下翻转。★ 它是**播放页唯一的开锁入口** ——
          * 锁上之后滑条拖不动，用户要是只能回设置页解锁，这个锁就成了陷阱。
          */
-        btnVolLock.setOnClickListener {
+        // ★ `?.` 不是凑数的：布局里没有这一块时（见字段声明那儿的长注释）就少接一条线
+        btnVolLock?.setOnClickListener {
             Settings.setVolumeLocked(this, !Settings.volumeLocked(this))
             renderVolume()
         }
 
         // 范围和位置由 renderVolume() 按存储统一设，这里不写死
-        seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        seekVolume?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
                 val db = volDbOf(progress)
                 Settings.setVolumeDb(this@NowPlayingActivity, db)
                 PlayerSession.refreshSoftwareVolume()
-                tvVolume.text = fmtVol(db)
+                tvVolume?.text = fmtVol(db)
                 // 徽章要跟着变（0dB 和 −12dB 的口径不同）
                 PlayerSession.current?.let { renderBadge(it) }
             }
@@ -290,9 +306,25 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
     private fun fmtVol(db: Float) = Settings.fmtVolumeDb(db)
 
     private fun renderVolume() {
+        /*
+         * ★★ 先取成非空局部变量，**任一个为 null 就直接返回**。
+         *
+         *   它们在这个布局里是**同进同出**的（都在「音量行」那一个块里），
+         *   所以缺一个就说明这个布局变体压根没有音量行 —— 没什么可渲染的。
+         *
+         *   ★ 不这么做的话，下面每一处都得写 `?.`，漏一处就出事；
+         *     而且 `rowVolume?.visibility = …` 这种写法本身就是错的
+         *     （`?.` 后面只能调方法，不能赋值属性）。
+         */
+        val row = rowVolume ?: return
+        val seek = seekVolume ?: return
+        val tv = tvVolume ?: return
+        val lock = btnVolLock ?: return
+        val warn = tvVolWarn ?: return
+
         val on = Settings.volumeControl(this)
         val locked = Settings.volumeLocked(this)
-        rowVolume.visibility = if (on) View.VISIBLE else View.GONE
+        row.visibility = if (on) View.VISIBLE else View.GONE
 
         /*
          * ④ DSD 警告：只在**音量控制开着**、而且**引擎里确实开着文件**时出现。
@@ -301,7 +333,7 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
          * ★ 关掉音量控制时它毫无意义（没有任何东西会失效），所以一起藏。
          * ★ 用 currentIsDsd() 现取 —— Track 上没有这个字段。
          */
-        tvVolWarn.visibility =
+        warn.visibility =
             if (on && PlayerSession.handle != 0L && PlayerSession.currentIsDsd())
                 View.VISIBLE else View.GONE
 
@@ -316,12 +348,12 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
          *    只变灰的话看不出"是锁着还是坏了"。
          * ★ 顺手把字也写上：这一行本来就窄，图标是主要信号，"已锁定"是补充。
          */
-        seekVolume.isEnabled = !locked
-        btnVolLock.setImageResource(
+        seek.isEnabled = !locked
+        lock.setImageResource(
             if (locked) R.drawable.ic_lock else R.drawable.ic_lock_open)
-        btnVolLock.imageTintList = android.content.res.ColorStateList.valueOf(
+        lock.imageTintList = android.content.res.ColorStateList.valueOf(
             Ui.c(this, if (locked) R.color.warn else R.color.text_secondary))
-        btnVolLock.contentDescription =
+        lock.contentDescription =
             getString(if (locked) R.string.volume_locked_prefix else R.string.volume_lock)
         /*
          * ★★ 两头跟着设置页定的上限/下限走。
@@ -331,11 +363,11 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
          * ★ 顺序必须是 min/max 先、progress 后：progress 会被**当前**范围夹一次，
          *   反过来的话先按旧范围夹了，位置就不是当前音量了。
          */
-        seekVolume.min = volStepOf(Settings.volumeFloorDb(this))
-        seekVolume.max = volStepOf(Settings.volumeCeilingDb(this))
+        seek.min = volStepOf(Settings.volumeFloorDb(this))
+        seek.max = volStepOf(Settings.volumeCeilingDb(this))
         val step = volStepOf(db)
-        if (seekVolume.progress != step) seekVolume.progress = step
-        tvVolume.text =
+        if (seek.progress != step) seek.progress = step
+        tv.text =
             if (locked) getString(R.string.volume_locked_prefix) + " · " + fmtVol(db)
             else fmtVol(db)
     }
