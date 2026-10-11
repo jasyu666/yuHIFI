@@ -118,11 +118,23 @@ private:
     uint64_t dataBytes_ = 0;      // 全部声道的 DSD 数据总字节
 
     /*
-     * 源文件的位序是不是 MSB-first（0x3C 字段 == 8）。
+     * 源文件的位序是不是 MSB-first。
      *
-     * false（0x3C == 1，绝大多数文件）= LSB-first，每个字节要按位反转。
+     * ★ DSF：由 0x3C 字段决定 ——
+     *     false（0x3C == 1，绝大多数 DSF）= LSB-first，每个字节要按位反转。
+     * ★ DFF：**恒为 true**，位序规则写在规范里，文件里没有这个开关。
      */
     bool msbFirst_ = false;
+
+    /*
+     * 装的是 DFF（DSDIFF）而不是 DSF。
+     *
+     * ★★ 必须分开记，因为两者**连"一帧"的定义都不一样**：
+     *      DSF 是每声道 4096 字节一整块地交替；
+     *      DFF 一帧只有 `声道数` 个字节（逐字节交织）。
+     *    loadNextBlock() 里解交织那几行按这个标志分叉。
+     */
+    bool dff_ = false;
 
     // ---- DSF 布局 ----
     uint32_t blockSize_ = 0;      // 每声道每块的字节数（规范值 4096）

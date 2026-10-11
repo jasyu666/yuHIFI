@@ -41,6 +41,19 @@ uint64_t rd64(const uint8_t* p) {
     return static_cast<uint64_t>(rd32(p)) | (static_cast<uint64_t>(rd32(p + 4)) << 32);
 }
 
+/*
+ * ★ DFF(IFF/DSDIFF) 是**大端**，DSF 是小端 —— 两套读法不能混用。
+ *   混用的后果不是崩溃而是"块长度读出个天文数字"，然后被上限挡掉。
+ */
+uint32_t rd32be(const uint8_t* p) {
+    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
+           (static_cast<uint32_t>(p[2]) << 8) | static_cast<uint32_t>(p[3]);
+}
+
+uint64_t rd64be(const uint8_t* p) {
+    return (static_cast<uint64_t>(rd32be(p)) << 32) | rd32be(p + 4);
+}
+
 /* pread 全部字节；返回实际读到的字节数 */
 ssize_t preadAll(int fd, void* buf, size_t n, uint64_t off) {
     size_t done = 0;
@@ -192,22 +205,176 @@ bool DsdReader::openDsf(int fd, std::string* err) {
     return true;
 }
 
+/*
+ * DFF（IFF / DSDIFF）头部布局 —— 已用一个真实的 DSD64 立体声文件逐字节核对过：
+ *
+ *   0x00 "FRM8"        4
+ *   0x04 块长度        8   ★ 大端 = 文件总长 - 12
+ *   0x0C "DSD "        4   form type
+ *   ---- 往后是一串**平铺**的块，每块 = id(4) + 长度(8, 大端) + 块体，块体按偶数对齐 ----
+ *   "FVER"  块体 4 字节：版本 0x01050000
+ *   "PROP"  块体：先 "SND "，再嵌 FS / CHNL / CMPR / (LSCO) 等子块
+ *   "DSD "  块体就是声音数据（若叫 "DST " 则是压缩的，本工程不支持）
+ *
+ * 实测样本：DSD64 立体声，FS=2822400、CHNL=2、CMPR="DSD "/"not compressed"、
+ *           DSD 数据 @144 共 118569024 字节 → 168.04 秒。
+ *
+ * ★★★ 和 DSF 的三处根本差别（依据 DSDIFF 1.5 规范 §2.3；
+ *     MPD 的 DsdiffDecoderPlugin 也是照这份规范写的，可交叉印证）：
+ *
+ *   1. **大端**。DSF 是小端。
+ *
+ *   2. **逐字节交织** —— 这是最容易搞错的一处。
+ *      DSF 是"每声道 4096 字节一整块"地交替；
+ *      DFF 的一**帧只有 `声道数` 个字节**（立体声 = 2 字节：L 一字节、R 一字节）。
+ *      规范里 `frame_size = channels × 1`，MPD 也是用 `chunk_size / channels` 算帧数。
+ *
+ *   3. **MSB-first**（第一个位落在字节最高位）。DSF 常见的是 LSB-first、每字节要按位
+ *      反转；DFF 是"原样搬"。★ 位序错了出来是噪音不是音乐 —— 一耳朵的事。
+ */
 bool DsdReader::openDff(int fd, std::string* err) {
-    (void) fd;
-    /*
-     * DFF 还没实现。
-     *
-     * 它和 DSF 的差别：FRM8 容器 + 大端 + **MSB-first 位序**（DSF 是 LSB-first）。
-     * 所以位序那一步会不一样，不能照抄。
-     *
-     * 手上没有 .dff 测试文件 —— 按项目一贯的做法，**没有真实数据就不写**，
-     * 免得写出一段"看着对但从没跑过"的代码。
-     */
-    if (err) {
-        *err = "DFF 容器还没实现（手上没有 .dff 测试文件，不写没验过的代码）。"
-               "请先用 .dsf，或者提供一个 .dff 样本。";
+    uint8_t head[16] = {0};
+    if (preadAll(fd, head, sizeof(head), 0) < 16) {
+        if (err) *err = "DFF 头部不完整";
+        return false;
     }
-    return false;
+    if (std::memcmp(head, "FRM8", 4) != 0) {
+        if (err) *err = "不是 DFF 文件（缺少 FRM8）";
+        return false;
+    }
+    if (std::memcmp(head + 12, "DSD ", 4) != 0) {
+        if (err) *err = "DFF 的 form type 不是 DSD ";
+        return false;
+    }
+
+    uint32_t chans = 0, sampleRate = 0;
+    bool sawFs = false, sawChnl = false;
+    uint64_t dataOff = 0, dataLen = 0;
+
+    /*
+     * 平铺扫块。★ 每个块头都**现读**，不能假设它们都挤在开头那 128 字节里 ——
+     * 真实文件里 DSD 数据块之前可能夹着 ID3 / DIIN / DIAR 一大堆元数据块。
+     * 加一个扫描上限，坏文件别让我们无限 pread 下去。
+     */
+    constexpr uint64_t kMaxScan = 1ULL << 20;      // 头部最多认 1 MiB
+    uint64_t off = 16;
+    while (off + 12 <= kMaxScan) {
+        uint8_t ch[12];
+        if (preadAll(fd, ch, sizeof(ch), off) < 12) break;
+        const uint64_t csize = rd64be(ch + 4);
+        if (csize > (1ULL << 40)) {
+            if (err) *err = "DFF 块长度异常：" + std::to_string(csize);
+            return false;
+        }
+
+        if (std::memcmp(ch, "PROP", 4) == 0) {
+            // 块体头 4 字节是 propType，再往下才是 FS / CHNL / CMPR 这些子块
+            uint8_t pt[4] = {0};
+            if (preadAll(fd, pt, 4, off + 12) == 4 && std::memcmp(pt, "SND ", 4) == 0) {
+                const uint64_t subEnd = off + 12 + csize;
+                uint64_t sub = off + 16;
+                while (sub + 12 <= subEnd && sub + 12 <= kMaxScan) {
+                    uint8_t sh[12];
+                    if (preadAll(fd, sh, sizeof(sh), sub) < 12) break;
+                    const uint64_t ssize = rd64be(sh + 4);
+
+                    if (std::memcmp(sh, "FS  ", 4) == 0 && ssize >= 4) {
+                        uint8_t v[4];
+                        if (preadAll(fd, v, 4, sub + 12) == 4) {
+                            sampleRate = rd32be(v);
+                            sawFs = true;
+                        }
+                    } else if (std::memcmp(sh, "CHNL", 4) == 0 && ssize >= 2) {
+                        uint8_t v[2];
+                        if (preadAll(fd, v, 2, sub + 12) == 2) {
+                            chans = (static_cast<uint32_t>(v[0]) << 8) | v[1];
+                            sawChnl = true;
+                        }
+                    } else if (std::memcmp(sh, "CMPR", 4) == 0 && ssize >= 4) {
+                        uint8_t v[4];
+                        if (preadAll(fd, v, 4, sub + 12) == 4 &&
+                            std::memcmp(v, "DSD ", 4) != 0) {
+                            /*
+                             * ★ 只支持未压缩。DST 是一整套无损编解码器（远不止解容器），
+                             *   本工程没做。而且必须**把话说清**，不能让用户对着一句
+                             *   笼统的"打不开"去猜是文件坏了还是软件不行。
+                             */
+                            if (err) *err = std::string("这个 DFF 里的声音是 ") +
+                                std::string(reinterpret_cast<const char*>(v), 4) +
+                                " 压缩的，本应用只支持未压缩的 DSD 位流。"
+                                "请改用 .dsf，或导出未压缩的 .dff。";
+                            return false;
+                        }
+                    }
+
+                    // ★ 子块块体同样按偶数对齐
+                    const uint64_t next = sub + 12 + ssize + (ssize & 1);
+                    if (next <= sub) break;
+                    sub = next;
+                }
+            }
+        } else if (std::memcmp(ch, "DSD ", 4) == 0) {
+            dataOff = off + 12;
+            dataLen = csize;
+            break;
+        } else if (std::memcmp(ch, "DST ", 4) == 0) {
+            if (err) *err = "这个 DFF 是 DST 压缩的，本应用只支持未压缩的 DSD 位流。"
+                            "请改用 .dsf，或导出未压缩的 .dff。";
+            return false;
+        }
+
+        const uint64_t next = off + 12 + csize + (csize & 1);   // ★ 块体按偶数对齐
+        if (next <= off) break;
+        off = next;
+    }
+
+    if (dataLen == 0) {
+        if (err) *err = "DFF 里找不到 DSD 声音数据块";
+        return false;
+    }
+    if (!sawFs || !sawChnl) {
+        if (err) *err = "DFF 缺少 FS / CHNL 块，无法确定采样率或声道数";
+        return false;
+    }
+    if (chans < 1 || chans > 8) {
+        if (err) *err = "DFF 声道数异常：" + std::to_string(chans);
+        return false;
+    }
+    if (sampleRate < 100000 || sampleRate > 100000000) {
+        if (err) *err = "DFF 采样率异常：" + std::to_string(sampleRate);
+        return false;
+    }
+
+    channels_ = static_cast<int>(chans);
+    bitRate_ = static_cast<int>(sampleRate);
+    msbFirst_ = true;                 // ★ DFF 一律 MSB-first，见上面第 3 条
+    dff_ = true;
+    dataStart_ = dataOff;
+    dataBytes_ = dataLen;
+
+    /*
+     * ★ "组"取**每声道 4096 字节** —— 和 DSF 的块大小**恰好一样**。
+     *   这样 totalBlocks_ 和 seekToMs() 那套算术一个字都不用改，
+     *   只有 loadNextBlock 里解交织那几行需要分叉。改动面小，出错面也小。
+     */
+    blockSize_ = 4096;
+    const uint64_t groupBytes = static_cast<uint64_t>(blockSize_) * channels_;
+    totalBlocks_ = (dataBytes_ + groupBytes - 1) / groupBytes;
+
+    // 时长按**每声道**的 bit 数算（dataBytes_ 是全部声道的合计）
+    const uint64_t bitsPerCh = (dataBytes_ / channels_) * 8ULL;
+    durationMs_ = static_cast<int64_t>(bitsPerCh * 1000ULL / static_cast<uint64_t>(bitRate_));
+
+    formatName_ = "dff";
+    rawBuf_.resize(static_cast<size_t>(groupBytes));
+
+    LOGI("DFF: %dch 位率 %dHz → 请求 %dHz，数据 @%llu 共 %llu 字节，%lld ms，"
+         "逐字节交织 + MSB-first（原样搬）",
+         channels_, bitRate_, wordRate(),
+         static_cast<unsigned long long>(dataStart_),
+         static_cast<unsigned long long>(dataBytes_),
+         static_cast<long long>(durationMs_));
+    return true;
 }
 
 int DsdReader::read(uint8_t* dst, int bytes) {
@@ -273,6 +440,39 @@ bool DsdReader::loadNextBlock() {
     const auto fix = [this, &rev](uint8_t b) -> uint32_t {
         return msbFirst_ ? static_cast<uint32_t>(b) : static_cast<uint32_t>(rev[b]);
     };
+    if (dff_) {
+        /*
+         * ★★ DFF：**逐字节交织**，源指针每挪一个字节就换一次声道。
+         *
+         *   第 w 个字的第 k 个字节，在文件里的位置是
+         *       (w × 4 + k) × 声道数 + c
+         *
+         *   ★ 和下面 DSF 那条 `c × blockSize_ + w × 4` 是**完全不同的取法** ——
+         *     两边的"帧"根本不是一个概念（DFF 一帧 = 声道数 × 1 字节）。
+         *   ★ DFF 恒为 MSB-first，fix() 到这里是恒等，但照样走一遍：
+         *     位序规则只此一处，将来谁也不用去记"哪条路要反转"。
+         */
+        const size_t ch = static_cast<size_t>(channels_);
+        for (size_t w = 0; w < words; ++w) {
+            const uint8_t* base = rawBuf_.data() + w * 4 * ch;
+            for (size_t c = 0; c < ch; ++c) {
+                const uint32_t word = (fix(base[c]) << 24) |
+                                      (fix(base[ch + c]) << 16) |
+                                      (fix(base[2 * ch + c]) << 8) |
+                                      fix(base[3 * ch + c]);
+                uint8_t* d = outBuf_.data() + (w * ch + c) * 4;
+                d[0] = static_cast<uint8_t>(word >> 24);   // 大端
+                d[1] = static_cast<uint8_t>(word >> 16);
+                d[2] = static_cast<uint8_t>(word >> 8);
+                d[3] = static_cast<uint8_t>(word);
+            }
+        }
+        outPos_ = 0;
+        ++blockIdx_;
+        if (have < want || blockIdx_ >= totalBlocks_) eof_ = true;
+        return true;
+    }
+
     for (size_t w = 0; w < words; ++w) {
         for (int c = 0; c < channels_; ++c) {
             const uint8_t* s = rawBuf_.data() + static_cast<size_t>(c) * blockSize_ + w * 4;
