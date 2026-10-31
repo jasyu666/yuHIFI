@@ -29,7 +29,7 @@
 
         <ImageButton
             android:id="@+id/btnTlBack"
-            style="@style/Btn.Icon"
+            style="@style/Btn.Icon.Back"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:contentDescription="@string/action_back"
@@ -113,6 +113,15 @@
         android:layout_marginEnd="6dp"
         android:layout_weight="1">
 
+        <!--
+          ★ paddingBottom 是 68dp 而不是 4dp，是给下面那个定位按钮留的。
+
+            按钮浮在列表右下角，离底 16dp、直径 48dp —— 加起来 64dp，
+            再留 4dp 原来那点边距。不留的话，列表滚到底时**最后一行
+            右侧的规格徽章会被按钮永久盖住**（滚到底就滚不动了，没有
+            办法把它挪出来）。clipToPadding=false 让这截留白只在
+            "滚到底"时才出现，短列表看不出任何区别。
+        -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvTracks"
             android:layout_width="match_parent"
@@ -120,7 +129,7 @@
             android:background="@drawable/bg_card_flat"
             android:clipToPadding="false"
             android:paddingTop="4dp"
-            android:paddingBottom="4dp"
+            android:paddingBottom="68dp"
             android:scrollbars="none" />
 
         <TextView
@@ -154,6 +163,30 @@
             android:layout_width="26dp"
             android:layout_height="match_parent"
             android:layout_gravity="end"
+            android:visibility="gone" />
+
+        <!--
+          「定位到正在播放」。只在歌单和「所有歌曲」两个来源里出现
+          （专辑来源由代码收起来，见 renderEmpty）。
+
+          ★ 默认的 16dp 右边距会让它压住上面那条字母滑动块 ——
+            滑动块占满整条右边缘，最下面几个字母正好在按钮底下。
+            代码里会把右边距改成 34dp 让开，见 LocateCurrent.avoidIndexBar。
+            所以这里的 marginEnd 只是个初始值，真正生效的是代码设的那个。
+        -->
+        <ImageButton
+            android:id="@+id/btnLocate"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_locate"
+            android:contentDescription="@string/action_locate_current"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_locate"
+            android:tint="@color/on_brand"
             android:visibility="gone" />
     </FrameLayout>
 

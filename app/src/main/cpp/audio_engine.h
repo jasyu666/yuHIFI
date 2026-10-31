@@ -1,8 +1,10 @@
 #pragma once
 
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -122,10 +124,10 @@ public:
      * ★ 开了就不是 bit-perfect —— 调用方（界面）有义务说清楚。
      */
     /*
-     * 软件音量。
+     * 软件音量（用户音量层）。
      *
      * ★★ **它必然不是 bit-perfect** —— 就是在样本上做乘法。
-     *    所以有开关，默认关；关着的时候处理链里连乘法都不做。
+     *    所以有开关，默认关。
      *
      * ★ 增益用原子变量，解码线程每块读一次 → **拖动滑条实时生效**，
      *   不用重建引擎、不用重开文件。
@@ -138,26 +140,66 @@ public:
      *    **衰减 −48dB 以内不丢任何有效位**。见 [setVolumeControl]。
      *
      * ★ 对 DSD 无效（DSD 走原生位流，不经过 PCM 域）。
+     *
+     * ★★ 和响度平衡**相互独立**：这里的开关只管用户音量；响度有自己的
+     *    [setLoudness]。两者都关时，处理链里一次乘法都不做。
      */
-    void setVolumeControl(bool enabled) { volumeEnabled_.store(enabled); }
+    void setVolumeControl(bool enabled) {
+        std::lock_guard<std::mutex> lk(gainMutex_);
+        volumeEnabled_.store(enabled);
+        recomputeEffectiveGainLocked();
+    }
     bool volumeControl() const { return volumeEnabled_.load(); }
 
-    /** 增益（线性，1.0 = 0dB）。范围会被夹在 [kMinGain, 1.0] */
-    void setGain(float g) {
-        if (g > 1.0f) g = 1.0f;
+    /*
+     * 响度平衡：开关 + 增益，**一次原子地设进去**。
+     *
+     * ★ 和用户音量**完全解耦**：音量控制关着时，响度照样按测量结果处理。
+     * ★ 只影响"响度增益是否参与合成"，不改用户音量的上下限/锁/滑条。
+     * ★ 开关和增益一起设，避免解码线程在两通 JNI 之间看到旧增益。
+     * ★ 对 DSD 无效（不经过 PCM 域）—— Kotlin 侧已排除。
+     */
+    void setLoudness(bool enabled, float g) {
+        std::lock_guard<std::mutex> lk(gainMutex_);
+        if (!(g > 0.0f) || !std::isfinite(g)) g = 1.0f;
+        if (g > kMaxLoudnessGain) g = kMaxLoudnessGain;
         if (g < kMinGain) g = kMinGain;
-        gain_.store(g);
+        loudnessEnabled_.store(enabled);
+        loudnessGain_.store(g);
+        recomputeEffectiveGainLocked();
     }
-    float gain() const { return gain_.load(); }
+    bool loudnessControl() const { return loudnessEnabled_.load(); }
 
-    /** 当前增益的分贝值（负数或 0），给界面显示 */
+    /** 用户音量增益（线性，1.0 = 0dB）。范围夹在 [kMinGain, kMaxVolumeGain] */
+    void setGain(float g) {
+        std::lock_guard<std::mutex> lk(gainMutex_);
+        if (g > kMaxVolumeGain) g = kMaxVolumeGain;
+        if (g < kMinGain) g = kMinGain;
+        volumeGain_.store(g);
+        recomputeEffectiveGainLocked();
+    }
+    float gain() const { return volumeGain_.load(); }
+
+    /** 用户音量的分贝值（可为正）；0dB 单独返回 0，避免显示 −0.0 */
     float gainDb() const {
-        const float g = gain_.load();
-        if (g >= 0.999999f) return 0.0f;
+        const float g = volumeGain_.load();
+        if (g >= 0.999999f && g <= 1.000001f) return 0.0f;
         return 20.0f * std::log10(g);
     }
 
-    /** 实际送出去的位深 —— 音量控制开着时会被提到 24bit */
+    float loudnessGain() const { return loudnessGain_.load(); }
+
+    /** 响度增益的分贝值；0dB 单独返回 0，避免浮点误差显示成 -0.0 */
+    float loudnessGainDb() const {
+        const float g = loudnessGain_.load();
+        return (g >= 0.999999f && g <= 1.000001f)
+                ? 0.0f : 20.0f * std::log10(g);
+    }
+
+    /** 热路径实际使用的合成增益（音量 × 响度） */
+    float effectiveGain() const { return effectiveGainTarget_.load(); }
+
+    /** 实际送出去的位深 —— 音量或响度任一层开着时会被提到 24bit */
     int outputBitResolution() const { return bitResolution_; }
 
     void setCrossfeed(bool on, int level) {
@@ -265,12 +307,19 @@ private:
     bool writeToRing(const uint8_t* data, size_t bytes);
 
     /**
-     * 软件音量：原地乘一个增益。
+     * 软件音量 + 响度平衡：原地乘一个**合成**增益。
      *
-     * ★ 增益 >= 1（0dB）时**直接返回**，连循环都不进 ——
-     *   这样"开着音量控制但没动滑条"和"没开"在数据上是完全一样的。
+     * ★ 两个增益在设置时先乘成一个系数，热路径只做一次乘法 ——
+     *   这不是优化，是正确性要求：响度增益可能 > 1，分两次乘会在第一步
+     *   就把样本顶出 int32 范围（之后再乘音量也救不回来）。
+     * ★ 合成增益 == 1.0 时**直接返回**，连循环都不进。
+     * ★ 两个开关独立：音量关着、响度开着时，这里照样处理响度增益。
+     * ★ 增益变化走 250ms 线性斜坡，避免拖音量滑条/响度结果到达时的台阶声。
      */
     void applyGain(int32_t* buf, int frames);
+
+    /** 音量增益 × 响度增益 → 热路径只读这一个。调用方必须持有 gainMutex_ */
+    void recomputeEffectiveGainLocked();
 
     /*
      * 真正执行 seek。**只能由解码线程调用** ——
@@ -316,8 +365,37 @@ private:
      *   −80dB 留了一点余量，又远超"实际能听见"的阈，够用了。
      */
     static constexpr float kMinGain = 0.0001f;      // −80dB
+
+    /*
+     * 用户音量的上限：+15dB（用户 2026-10-17 定，和 Adobe Audition 的推子范围对齐）。
+     * ★ 这是**数字放大**：没有更多位数，推过头就是 0dBFS 硬削顶。
+     * ★ 设置层默认上限仍是 0dB，必须用户手动提高才会用到这里的正增益。
+     */
+    static constexpr float kMaxVolumeGain = 5.6234132f;   // +15dB
+
+    /* 响度增益的防御上限：+24dB。真峰值钳制正常情况下远到不了这里 */
+    static constexpr float kMaxLoudnessGain = 15.8489319f;
+
     std::atomic<bool> volumeEnabled_{false};
-    std::atomic<float> gain_{1.0f};
+    std::atomic<bool> loudnessEnabled_{false};
+    std::atomic<float> volumeGain_{1.0f};
+    std::atomic<float> loudnessGain_{1.0f};
+    std::atomic<float> effectiveGainTarget_{1.0f};
+
+    /*
+     * 只保护两个增益的"写 + 合算"这一对操作。
+     * 解码线程**不拿这把锁**，它只读 effectiveGainTarget_。
+     */
+    mutable std::mutex gainMutex_;
+
+    /*
+     * 斜坡状态。只有解码线程读写，不需要原子量。
+     * 250ms 按输出采样率换算成样本数。
+     */
+    float currentGain_ = 1.0f;
+    float rampStep_ = 0.0f;
+    float rampLastTarget_ = 1.0f;
+    int rampRemainingSamples_ = 0;
 
     /** 设备声明的速率能力。hasInfo=false 时全部走白名单 */
     DeviceRateCaps deviceCaps_;

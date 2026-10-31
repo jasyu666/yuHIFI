@@ -31,6 +31,7 @@
 #include "iso_player.h"
 #include "system_audio_sink.h"
 #include "media_probe.h"
+#include "loudness_analyzer.h"
 #include "rate_policy.h"
 #include "thread_priority.h"
 #include "tone_source.h"
@@ -1434,10 +1435,11 @@ Java_com_hifiprobe_NativePlayer_nativeSetCrossfeed(JNIEnv*, jobject, jlong h,
 }
 
 /*
- * 软件音量：开关 + 增益（分贝，<= 0）。
+ * 软件音量：开关 + 增益（分贝，−80 ~ +15）。
  *
  * ★★ **这是软件音量，不是设备的 UAC 硬件音量** —— 它在样本上做乘法，
  *    **必然不是 bit-perfect**。所以有开关，默认关。
+ * ★ 正向增益是数字放大，可能削顶；设置层默认上限 0dB，由用户手动放宽。
  * ★ 原子变量，解码线程每块读一次 → 拖动滑条**实时生效**，不用重建引擎。
  * ★ 增益 0dB 时原生侧直接跳过，一个样本都不碰。
  * ★ 对 DSD 无效（DSD 走原生位流，不经过 PCM 域）。
@@ -1469,6 +1471,89 @@ Java_com_hifiprobe_NativePlayer_nativeSoftwareVolumeState(JNIEnv* env, jobject, 
     }
     jlongArray a = env->NewLongArray(3);
     if (a != nullptr) env->SetLongArrayRegion(a, 0, 3, vals);
+    return a;
+}
+
+/*
+ * 响度平衡：开关 + 增益（分贝），一次设进去。
+ *
+ * ★ 和软件音量**相互独立**：音量控制关着时，响度照样参与处理。
+ *   两层各自有开关，合成系数 = 音量（关=0dB）× 响度（关=0dB）。
+ * ★ 用户音量只会 <= 0dB，而响度要能把安静的歌提上来（可能为正）。
+ *   热路径里两者先乘成一个系数，只做一次乘法。
+ * ★ 对 DSD 无效（DSD 走原生位流）。
+ */
+JNIEXPORT void JNICALL
+Java_com_hifiprobe_NativePlayer_nativeSetLoudness(JNIEnv*, jobject, jlong h,
+                                                  jboolean on, jfloat gainDb) {
+    NativeCtx* c = asCtx(h);
+    if (c == nullptr) return;
+    c->engine.setLoudness(on == JNI_TRUE, std::pow(10.0f, gainDb / 20.0f));
+}
+
+/** 当前响度增益（分贝），给诊断和界面显示用 */
+JNIEXPORT jfloat JNICALL
+Java_com_hifiprobe_NativePlayer_nativeLoudnessGainDb(JNIEnv*, jobject, jlong h) {
+    NativeCtx* c = asCtx(h);
+    return c == nullptr ? 0.0f : c->engine.loudnessGainDb();
+}
+
+/*
+ * 响度分析任务。
+ *
+ * 一个 job 可以只跑一首，也可以连续跑一整张专辑：
+ *   create → runTrack × N → finishAlbum（仅专辑）→ destroy
+ * ★ runTrack 的 fd 由调用方持有；原生层 dup 一份自己用，不关调用方的 fd。
+ * ★ 结果数组统一是 {LUFS, dBTP, valid}。
+ */
+JNIEXPORT jlong JNICALL
+Java_com_hifiprobe_NativePlayer_nativeLoudnessJobCreate(JNIEnv*, jobject) {
+    return static_cast<jlong>(reinterpret_cast<intptr_t>(
+            hifi::loudnessJobCreate()));
+}
+
+JNIEXPORT void JNICALL
+Java_com_hifiprobe_NativePlayer_nativeLoudnessJobCancel(JNIEnv*, jobject,
+                                                        jlong job) {
+    hifi::loudnessJobCancel(reinterpret_cast<hifi::LoudnessAnalysisJob*>(job));
+}
+
+JNIEXPORT void JNICALL
+Java_com_hifiprobe_NativePlayer_nativeLoudnessJobDestroy(JNIEnv*, jobject,
+                                                         jlong job) {
+    hifi::loudnessJobDestroy(reinterpret_cast<hifi::LoudnessAnalysisJob*>(job));
+}
+
+JNIEXPORT jdoubleArray JNICALL
+Java_com_hifiprobe_NativePlayer_nativeLoudnessJobRunTrack(JNIEnv* env, jobject,
+                                                          jlong job, jint fd) {
+    jdouble vals[3] = {0.0, 0.0, 0.0};
+    auto* j = reinterpret_cast<hifi::LoudnessAnalysisJob*>(job);
+    if (j != nullptr) {
+        const hifi::TrackLoudness r = hifi::loudnessAnalyzeTrack(j, fd);
+        vals[0] = r.lufs;
+        vals[1] = r.truePeakDb;
+        vals[2] = r.valid ? 1.0 : 0.0;
+    }
+    jdoubleArray a = env->NewDoubleArray(3);
+    if (a != nullptr) env->SetDoubleArrayRegion(a, 0, 3, vals);
+    return a;
+}
+
+JNIEXPORT jdoubleArray JNICALL
+Java_com_hifiprobe_NativePlayer_nativeLoudnessJobFinishAlbum(JNIEnv* env,
+                                                             jobject,
+                                                             jlong job) {
+    jdouble vals[3] = {0.0, 0.0, 0.0};
+    auto* j = reinterpret_cast<hifi::LoudnessAnalysisJob*>(job);
+    if (j != nullptr) {
+        const hifi::LoudnessResult r = hifi::loudnessFinishAlbum(j);
+        vals[0] = r.lufs;
+        vals[1] = r.truePeakDb;
+        vals[2] = r.valid ? 1.0 : 0.0;
+    }
+    jdoubleArray a = env->NewDoubleArray(3);
+    if (a != nullptr) env->SetDoubleArrayRegion(a, 0, 3, vals);
     return a;
 }
 

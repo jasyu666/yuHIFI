@@ -23,6 +23,10 @@ import androidx.recyclerview.widget.RecyclerView
  *
  * 拖动排序用 [ItemTouchHelper]，但**只有左侧把手能拖** ——
  * 整行可拖的话，想点一下跳过去就会误触成排序。
+ *
+ * ★ 右下角有个「定位到正在播放」（[LocateCurrent]）。队列长了以后，
+ *   正在播的那首经常早就滚出屏幕了，这一页又不像别的列表那样
+ *   能靠"当前曲目高亮"一眼找到 —— 得先能看见它。
  */
 class QueueActivity : AppCompatActivity(), PlayerSession.Listener {
 
@@ -31,6 +35,7 @@ class QueueActivity : AppCompatActivity(), PlayerSession.Listener {
     private lateinit var tvQueueHint: TextView
 
     private val adapter = QueueAdapter()
+    private lateinit var locate: LocateCurrent
     /** 拖动把手当前是否按下 —— 决定 ItemTouchHelper 允不允许这次拖动 */
     private var dragEnabled = false
 
@@ -65,6 +70,15 @@ class QueueActivity : AppCompatActivity(), PlayerSession.Listener {
         rvQueue.layoutManager = LinearLayoutManager(this)
         rvQueue.adapter = adapter
         attachDragHelper()
+
+        /*
+         * 目标就是队列自己那个 currentIndex —— 这一页不需要"按 uri 找"，
+         * 因为它显示的就是队列本身，行号即下标。
+         */
+        locate = LocateCurrent(
+            this, findViewById(R.id.btnLocate), rvQueue,
+            target = { PlayerSession.queue.currentIndex }
+        )
 
         val btnBack = findViewById<ImageButton>(R.id.btnQueueBack)
         btnBack.setOnClickListener { if (sel.active) exitSelect() else finish() }
@@ -126,6 +140,8 @@ class QueueActivity : AppCompatActivity(), PlayerSession.Listener {
         btnSelectAll.visibility = if (on) View.VISIBLE else View.GONE
         if (on) selHeader.enter() else selHeader.exit()
         if (!on) tvQueueHeading.text = titleBeforeSelect
+        // 多选时收起：定位和"我选了哪几首"无关，跟着顶栏那几个按钮一起让位
+        locate.suppressed = on
         render()
         renderSelection()
     }
@@ -253,6 +269,8 @@ class QueueActivity : AppCompatActivity(), PlayerSession.Listener {
         } else {
             "按住左侧把手可以拖动排序。点一行直接跳过去播放。"
         }
+
+        locate.render()
     }
 
     // ------------------------------------------------------------------

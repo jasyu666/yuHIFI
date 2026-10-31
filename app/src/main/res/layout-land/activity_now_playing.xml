@@ -184,6 +184,71 @@
             android:textSize="11sp"
             android:visibility="gone" />
 
+        <!--
+          上限 / 下限：**横屏不显示**（用户 2026-10-17 定：横屏只保留主音量，空间更大）。
+          ★ 视图仍然放在这里、id 与竖屏一致 —— Activity 是同一套 findViewById，
+            少一个 id 会直接崩；显隐由 renderVolume() 按横竖屏控制。
+        -->
+        <LinearLayout
+            android:id="@+id/rowVolCeiling"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/volume_ceiling" />
+
+            <SeekBar
+                android:id="@+id/seekVolCeilingNp"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tvVolCeilingNp"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:gravity="end"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rowVolFloor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/volume_floor" />
+
+            <SeekBar
+                android:id="@+id/seekVolFloorNp"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tvVolFloorNp"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:gravity="end"
+                android:textSize="11sp" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

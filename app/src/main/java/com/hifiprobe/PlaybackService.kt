@@ -336,12 +336,27 @@ class PlaybackService : Service(), PlayerSession.Listener {
             )
         ).build()
 
-    private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
-        this, 0,
-        Intent(this, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-    )
+    private fun openAppIntent(): PendingIntent {
+        /*
+         * ★ 通知栏点击必须落到用户期待的页面：
+         *   · 有当前曲目（播放中 / 暂停 / 恢复出来的队列）→ 正在播放页
+         *   · 没有曲目 → 首页
+         *
+         * 原来固定指向 MainActivity（旧的测试/诊断页），用户实测点通知
+         * 直接进测试页。这里按 PlayerSession.current 选目标。
+         *
+         * 两个目标用不同 requestCode，避免 PendingIntent 复用旧的 component。
+         */
+        val hasTrack = PlayerSession.current != null
+        val target = if (hasTrack) NowPlayingActivity::class.java else HomeActivity::class.java
+        val requestCode = if (hasTrack) 1 else 2
+        return PendingIntent.getActivity(
+            this, requestCode,
+            Intent(this, target)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
 
     /** 只在真的换了曲目/状态时才重建通知，避免每 200ms 刷一次 */
     private var lastNotified: String? = null

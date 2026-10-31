@@ -99,12 +99,21 @@
             android:screenOrientation="portrait"
             android:parentActivityName=".HomeActivity" />
 
+        <!--
+          ★ adjustResize 是这一页**独有**的，别的页没有（它们没有输入框）。
+            默认的 adjustUnspecified 在"根布局里有可滚动容器"时会解析成
+            adjustResize、否则 adjustPan —— 这一页两种都碰得上（列表空的时候
+            就没有可滚动的容器）。与其让它自己猜，不如写死：搜索框一聚焦，
+            网格缩到键盘上方，边打边看结果。pan 的话整个窗口往上顶，
+            搜索框自己都会被顶出去。
+        -->
         <activity
             android:name=".AlbumsActivity"
             android:exported="false"
             android:label="@string/nav_albums"
             android:screenOrientation="portrait"
-            android:parentActivityName=".HomeActivity" />
+            android:parentActivityName=".HomeActivity"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".PlaylistsActivity"

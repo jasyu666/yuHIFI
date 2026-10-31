@@ -272,6 +272,25 @@
                 android:layout_marginTop="10dp"
                 android:text="导出完整报告到文件" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp"
+                android:text="── 响度分析监控 ──"
+                android:textColor="@color/brand"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvLoudnessMonitor"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="（等待分析器状态…）"
+                android:textColor="@color/text_secondary"
+                android:textIsSelectable="true"
+                android:textSize="10sp" />
+
         </LinearLayout>
     </ScrollView>
 

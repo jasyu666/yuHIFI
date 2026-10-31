@@ -31,7 +31,7 @@
              系统返回键也能用，但页面上有个可见的出口更让人放心 -->
         <ImageButton
             android:id="@+id/btnLibBack"
-            style="@style/Btn.Icon"
+            style="@style/Btn.Icon.Back"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:contentDescription="@string/action_back"
@@ -164,6 +164,7 @@
         android:layout_marginEnd="16dp"
         android:layout_weight="1">
 
+        <!-- paddingBottom 68dp 是给下面那个定位按钮留的，理由见 activity_track_list.xml -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvTracks"
             android:layout_width="match_parent"
@@ -171,7 +172,7 @@
             android:background="@drawable/bg_card_flat"
             android:clipToPadding="false"
             android:paddingTop="4dp"
-            android:paddingBottom="4dp"
+            android:paddingBottom="68dp"
             android:scrollbars="none" />
 
         <TextView
@@ -193,6 +194,28 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <!--
+          「定位到正在播放」。
+
+          ★ 这一页和别处不一样：正在播的那首**多半不在当前这一层** ——
+            音乐库是按文件夹一层层进的。所以按下去会先看当前这层，
+            没有就自动进到它所在的文件夹，再定位。见 LibraryActivity。
+        -->
+        <ImageButton
+            android:id="@+id/btnLocate"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_locate"
+            android:contentDescription="@string/action_locate_current"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_locate"
+            android:tint="@color/on_brand"
             android:visibility="gone" />
     </FrameLayout>
 

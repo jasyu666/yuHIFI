@@ -234,7 +234,7 @@ object NativePlayer {
     external fun nativeCrossfeedState(handle: Long): IntArray
 
     /*
-     * 软件音量：开关 + 增益（分贝，<= 0）。
+     * 软件音量：开关 + 增益（分贝，−80 ~ +15）。
      *
      * ★★ 注意和上面那组 [nativeVolumeRange] / [nativeSetVolume] **不是一回事**：
      *    · [nativeSetVolume]  = **设备的 UAC 硬件音量**，不碰样本，**保持 bit-perfect**，
@@ -242,7 +242,7 @@ object NativePlayer {
      *    · 这一个             = **软件数字音量**，在样本上做乘法，**必然不是 bit-perfect**。
      *      好处是任何设备都能用；而且开着时输出位深会提到 24bit，
      *      对 16bit 源来说 −48dB 以内**不丢有效位**。
-     *
+     * ★ 正增益是数字放大，可能削顶；设置层默认上限 0dB，由用户手动放宽。
      * ★ 原子变量，解码线程每块读一次 → 拖动实时生效，不用重建引擎。
      * ★ 对 DSD 无效（DSD 走原生位流）。
      */
@@ -250,6 +250,38 @@ object NativePlayer {
 
     /** 返回 {开着吗, 当前 dB × 100, 实际输出位深} */
     external fun nativeSoftwareVolumeState(handle: Long): LongArray
+
+    /*
+     * 响度平衡：开关 + 逐曲目的静态增益（分贝，可为正）。
+     *
+     * ★ 和 [nativeSetSoftwareVolume] **相互独立**：音量控制关着时响度照样
+     *   生效。两层各自有开关，引擎把（音量或 0dB）×（响度或 0dB）合成一个系数。
+     * ★ 每次换曲都必须重下发 —— 换文件时引擎会复位自己的斜坡状态。
+     * ★ 对 DSD 无效（DSD 走原生位流，不经过 PCM 域）。
+     */
+    external fun nativeSetLoudness(handle: Long, on: Boolean, gainDb: Float)
+
+    /** 当前响度增益（分贝），诊断用 */
+    external fun nativeLoudnessGainDb(handle: Long): Float
+
+    /*
+     * 响度分析任务（独立解码，绝不碰正在播放的解码器）。
+     *
+     * 一个 job 可以只跑一首，也可以连续跑一整张专辑：
+     *   create() → runTrack() × N → finishAlbum()（仅专辑）→ destroy()
+     *
+     * runTrack 返回 {LUFS, dBTP, valid}；fd 的所有权仍归调用方，
+     * 原生层内部 dup 一份自己用。
+     */
+    external fun nativeLoudnessJobCreate(): Long
+    external fun nativeLoudnessJobRunTrack(job: Long, fd: Int): DoubleArray
+    external fun nativeLoudnessJobFinishAlbum(job: Long): DoubleArray
+
+    /** 中断正在跑的分析（取消标志按包检查，返回后结果无效） */
+    external fun nativeLoudnessJobCancel(job: Long)
+
+    /** 释放 job。**必须**在 runTrack/finishAlbum 返回之后调用 */
+    external fun nativeLoudnessJobDestroy(job: Long)
 
     /**
      * A/B 开关：是否跟随设备的 feedback 速率。

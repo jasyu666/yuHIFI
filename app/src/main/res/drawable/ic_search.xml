@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  放大镜 —— 专辑页搜索框左边那个静态图标。
+
+  和 @drawable/ic_locate 同一套：24dp 网格、2dp 线宽、圆头端点。
+  描边而非填充：它是输入框的装饰，不是可点的控件。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 圆心 (11,11)、半径 7 -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M11,4 A7,7 0 1 0 11,18 A7,7 0 1 0 11,4"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="2" />
+    <!-- 手柄：从圆周的 45° 处往外，正好接上 -->
+    <path
+        android:pathData="M16,16 L21,21"
+        android:strokeColor="@android:color/white"
+        android:strokeLineCap="round"
+        android:strokeWidth="2" />
+</vector>

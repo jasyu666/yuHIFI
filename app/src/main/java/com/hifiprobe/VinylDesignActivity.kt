@@ -563,7 +563,7 @@ class VinylDesignActivity : AppCompatActivity() {
             addView(ImageButton(this@VinylDesignActivity).apply {
                 setImageResource(R.drawable.ic_back)
                 imageTintList = android.content.res.ColorStateList.valueOf(
-                    Ui.c(this@VinylDesignActivity, R.color.text_primary))
+                    Ui.c(this@VinylDesignActivity, R.color.back_arrow))
                 background = null
                 contentDescription = "返回"
                 setPadding(0, 0, 0, 0)

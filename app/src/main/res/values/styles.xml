@@ -135,6 +135,12 @@
         <item name="backgroundTint">@android:color/transparent</item>
     </style>
 
+    <!-- 返回箭头：薄荷绿，不要跟正文的近白色混在一起 -->
+    <style name="Btn.Icon.Back" parent="Btn.Icon">
+        <item name="iconTint">@color/back_arrow</item>
+        <item name="android:tint">@color/back_arrow</item>
+    </style>
+
     <!-- 主播放键：填色实心，视觉重心落在这里 -->
     <style name="Btn.Icon.Filled" parent="Widget.Material3.Button.IconButton.Filled">
         <item name="iconTint">@color/on_brand</item>

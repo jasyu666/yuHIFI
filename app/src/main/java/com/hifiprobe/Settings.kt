@@ -61,7 +61,6 @@ object Settings {
      * 音量控制开关。**默认关闭**。
      *
      * ★★ 这是**软件数字音量**（在样本上做乘法），**必然不是 bit-perfect**。
-     *    所以默认关 —— 关着的时候处理链里一次乘法都没有。
      *
      * ★ 为什么需要它：USB 直连绕过了 AudioFlinger，**系统音量条对它不起作用**；
      *   而设备自己的 UAC 硬件音量又常常没实现（Dawn Pro、TANJIM BUNNY DSP
@@ -69,6 +68,10 @@ object Settings {
      *
      * ★ 开着的时候输出位深会被提到 24bit（源低于 24bit 时）——
      *   16bit 源在 −48dB 以内**不丢任何有效位**。
+     *
+     * ★★ 和响度平衡**相互独立**：音量控制是"给没有硬件音量的设备调音量"，
+     *    响度平衡是"把曲目拉到同一基准"。两者各有开关，可以单独开，
+     *    也可以叠加（响度先定基准，音量做最终修正）。
      */
     fun volumeControl(ctx: Context): Boolean =
         sp(ctx).getBoolean("volume_control", false)
@@ -107,8 +110,10 @@ object Settings {
      *   再低就开始丢有效位；**约 −96dB** 才是数学极限（16bit 源只剩 0 位有效）。
      *   −80dB 留了余量，又远超实际能听见的阈。
      *
-     * ★ 上限的绝对天花板是 0dB —— 不做增益（放大）。满量程就是满量程，
-     *   再往上只会削顶，没有任何好处。
+     * ★★ 上限的绝对天花板是 **+15dB**（用户 2026-10-17 定）。
+     *   正增益是数字放大，没有更多位数；推过头就会在 0dBFS 削顶。
+     *   **默认上限仍是 0dB**，要正向增益必须由用户手动把上限提高 ——
+     *   这是安全默认，不是功能缺失。
      */
     fun volumeDb(ctx: Context): Float {
         val (lo, hi) = volumeRange(ctx)
@@ -133,8 +138,17 @@ object Settings {
     /** 可调范围的绝对下限。下限滑条最多只能拉到这儿 */
     const val MIN_VOLUME_DB = -80f
 
-    /** 可调范围的绝对上限（0dB = 不衰减） */
-    const val MAX_VOLUME_DB = 0f
+    /** 可调范围的绝对上限（+15dB；0dB = 不修正，正值 = 数字放大） */
+    const val MAX_VOLUME_DB = 15f
+
+    /**
+     * 音量的**默认上限**。
+     *
+     * ★★ 它和 [MAX_VOLUME_DB] 是两回事：绝对上限允许 +15dB，
+     *    但默认只给到 0dB。正向增益必须由用户主动把上限提高才会启用 ——
+     *    否则所有老用户一升级就多出 15dB 的削顶风险。
+     */
+    const val DEFAULT_VOLUME_CEILING_DB = 0f
 
     /**
      * 上下限之间必须留的最小跨度。
@@ -147,7 +161,7 @@ object Settings {
     /**
      * 生效的音量范围 (下限, 上限)。
      *
-     * ★★ 两个值都**先各自夹进 [−80, 0]、再排序**，不直接信任存储：
+     * ★★ 两个值都**先各自夹进 [−80, +15]、再排序**，不直接信任存储：
      *   `coerceIn(lo, hi)` 在 lo > hi 时**会抛异常**，`SeekBar` 的 min/max
      *   反了也一样是坏的。存储被外部改坏时这里兜住 ——
      *   界面上最坏也只是可调范围变小，不会崩。
@@ -157,7 +171,7 @@ object Settings {
     private fun volumeRange(ctx: Context): Pair<Float, Float> {
         val a = sp(ctx).getFloat("volume_floor_db", MIN_VOLUME_DB)
             .coerceIn(MIN_VOLUME_DB, MAX_VOLUME_DB)
-        val b = sp(ctx).getFloat("volume_ceiling_db", MAX_VOLUME_DB)
+        val b = sp(ctx).getFloat("volume_ceiling_db", DEFAULT_VOLUME_CEILING_DB)
             .coerceIn(MIN_VOLUME_DB, MAX_VOLUME_DB)
         val hi = maxOf(a, b)
         val lo = minOf(minOf(a, b), hi - MIN_SPAN_DB).coerceAtLeast(MIN_VOLUME_DB)
@@ -165,10 +179,10 @@ object Settings {
     }
 
     /**
-     * 音量上限。**默认 0dB = 不限制**。
+     * 音量上限。**默认 0dB（不放大）**，可手动提高到最高 +15dB。
      *
-     * ★★ 它存在的理由只有一个：**防止手一滑把音量推到最高**。
-     *   所以它定义的是**滑条的最右端** —— 拖到头也只会到上限，不是 0dB。
+     * ★★ 它定义的是**滑条的最右端** —— 拖到头也只会到上限。
+     *    想用正向增益，必须先把上限提到 0dB 以上；否则滑条到 0dB 就停。
      */
     fun volumeCeilingDb(ctx: Context) = volumeRange(ctx).second
 
@@ -201,27 +215,40 @@ object Settings {
     }
 
     /**
-     * 音量滑条的总格数。0..VOLUME_STEPS 映射到 [MIN_VOLUME_DB, 0]。
+     * 音量滑条的总格数。0..VOLUME_STEPS 映射到 [MIN_VOLUME_DB, MAX_VOLUME_DB]。
      *
-     * ★ 200 格覆盖 80dB → 每格 0.4dB，够细了。
+     * ★ **380 格覆盖 −80 ~ +15（95dB）→ 每格 0.25dB**。
+     *   选 380 而不是 200，是为了让 **0dB 正好落在刻度上**
+     *   （95dB / 0.25dB = 380；0dB 在 320 格）。否则滑条最右端会变成
+     *   −0.2dB，用户拖到头拿不到真正的 0dB。
      * ★ 设置页和播放页各有一个滑条，**刻度和换算必须共用这一份** ——
      *   两边各写一套的话迟早会不一致（滑条位置对不上实际音量）。
      * ★★ 上下限只改**滑条自己的 min/max**（拿 [volumeStepOfDb] 换算），
      *   **不动这把尺子** —— 尺子一动，已经存下来的刻度值全都要重新解释。
      */
-    const val VOLUME_STEPS = 200
+    const val VOLUME_STEPS = 380
 
     /** 滑条刻度 → 分贝 */
-    fun volumeDbOfStep(step: Int) =
-        MIN_VOLUME_DB * (VOLUME_STEPS - step.coerceIn(0, VOLUME_STEPS)) / VOLUME_STEPS
+    fun volumeDbOfStep(step: Int): Float {
+        val s = step.coerceIn(0, VOLUME_STEPS)
+        return MIN_VOLUME_DB +
+                (MAX_VOLUME_DB - MIN_VOLUME_DB) * s / VOLUME_STEPS
+    }
 
     /** 分贝 → 滑条刻度 */
-    fun volumeStepOfDb(db: Float) =
-        Math.round(VOLUME_STEPS * (1f + db / -MIN_VOLUME_DB)).coerceIn(0, VOLUME_STEPS)
+    fun volumeStepOfDb(db: Float): Int {
+        val d = db.coerceIn(MIN_VOLUME_DB, MAX_VOLUME_DB)
+        val span = MAX_VOLUME_DB - MIN_VOLUME_DB
+        return Math.round(VOLUME_STEPS * (d - MIN_VOLUME_DB) / span)
+            .coerceIn(0, VOLUME_STEPS)
+    }
 
-    /** 音量的可读文本。0dB 单独说，不然「−0.0 dB」很难看 */
-    fun fmtVolumeDb(db: Float): String =
-        if (db >= -0.05f) "0 dB" else "%.1f dB".format(db)
+    /** 音量的可读文本。0dB 单独说，正值带 +，负值用中文减号 */
+    fun fmtVolumeDb(db: Float): String = when {
+        db > 0.05f -> "+%.1f dB".format(db)
+        db >= -0.05f -> "0 dB"
+        else -> "%.1f dB".format(db).replace('-', '−')
+    }
 
     /**
      * 输入框里用的格式：**只有数字，不带单位**。
@@ -230,8 +257,97 @@ object Settings {
      *   每次解析都得先剥掉「dB」，凭空多一层出错的地方。
      * ★ 0dB 写成 `0` 而不是 `0.0`：连"要不要打小数点"这点犹豫都不给用户留。
      */
-    fun fmtVolumeInput(db: Float): String =
-        if (db >= -0.05f) "0" else "%.1f".format(db)
+    fun fmtVolumeInput(db: Float): String = when {
+        db > 0.05f -> "%.1f".format(db)
+        db >= -0.05f -> "0"
+        else -> "%.1f".format(db)
+    }
+
+    // ---- 响度平衡 ----
+
+    /**
+     * 响度平衡开关。**默认关闭**。
+     *
+     * ★★ **不依赖音量控制**：响度平衡有自己的增益层，音量控制关着也生效。
+     *    音量控制是给"没有硬件音量的直连设备"用的；响度平衡是另一件事。
+     * ★ 两者可以叠加：响度先把曲目拉到同一基准，音量再在这个基准上做最终修正。
+     * ★ 对 DSD 无效（不经过 PCM 域）。
+     */
+    fun loudnessEnabled(ctx: Context): Boolean =
+        sp(ctx).getBoolean("loudness_enabled", false)
+
+    fun setLoudnessEnabled(ctx: Context, v: Boolean) =
+        sp(ctx).edit().putBoolean("loudness_enabled", v).apply()
+
+    /** 目标响度。默认 −14 LUFS（Spotify / YouTube 那一档） */
+    const val DEFAULT_LOUDNESS_LUFS = -14f
+    const val MIN_LOUDNESS_LUFS = -24f
+    const val MAX_LOUDNESS_LUFS = -9f
+
+    fun loudnessTargetLufs(ctx: Context): Float =
+        sp(ctx).getFloat("loudness_target_lufs", DEFAULT_LOUDNESS_LUFS)
+            .coerceIn(MIN_LOUDNESS_LUFS, MAX_LOUDNESS_LUFS)
+
+    fun setLoudnessTargetLufs(ctx: Context, v: Float) =
+        sp(ctx).edit().putFloat(
+            "loudness_target_lufs", v.coerceIn(MIN_LOUDNESS_LUFS, MAX_LOUDNESS_LUFS)
+        ).apply()
+
+    /**
+     * 模式：
+     *   0 = 自动（< 专辑曲目上限的按专辑，其余按单曲）
+     *   1 = 全部单曲（每首各自归一化）
+     *
+     * ★ 刻意**没有**"全部专辑"：大杂烩歌单被当成一张 96 小时的专辑，
+     *   平均响度会毫无意义。自动模式已经覆盖了正常专辑。
+     */
+    const val LOUDNESS_MODE_AUTO = 0
+    const val LOUDNESS_MODE_TRACK = 1
+
+    fun loudnessMode(ctx: Context): Int =
+        sp(ctx).getInt("loudness_mode", LOUDNESS_MODE_AUTO)
+            .coerceIn(LOUDNESS_MODE_AUTO, LOUDNESS_MODE_TRACK)
+
+    fun setLoudnessMode(ctx: Context, v: Int) =
+        sp(ctx).edit().putInt(
+            "loudness_mode", v.coerceIn(LOUDNESS_MODE_AUTO, LOUDNESS_MODE_TRACK)
+        ).apply()
+
+    /**
+     * 自动模式下"多少首以内算一张专辑"的上限。**默认 50**。
+     *
+     * ★ 用户可改。实测本库 74 和 1325 之间是断崖；默认 50 会把那个
+     *   74 首的精选也划进单曲（它本来就不该共用增益）。
+     * ★ 上限 500：再大的组多半是歌单转存，按专辑测既慢又没意义。
+     */
+    const val DEFAULT_ALBUM_MAX_TRACKS = 50
+    const val MIN_ALBUM_MAX_TRACKS = 2
+    const val MAX_ALBUM_MAX_TRACKS = 500
+
+    fun loudnessAlbumMaxTracks(ctx: Context): Int =
+        sp(ctx).getInt("loudness_album_max_tracks", DEFAULT_ALBUM_MAX_TRACKS)
+            .coerceIn(MIN_ALBUM_MAX_TRACKS, MAX_ALBUM_MAX_TRACKS)
+
+    fun setLoudnessAlbumMaxTracks(ctx: Context, v: Int) =
+        sp(ctx).edit().putInt(
+            "loudness_album_max_tracks",
+            v.coerceIn(MIN_ALBUM_MAX_TRACKS, MAX_ALBUM_MAX_TRACKS)
+        ).apply()
+
+    /** 目标响度的显示文本，例如 "−14 LUFS" */
+    fun fmtLufs(v: Float): String {
+        val rounded = Math.round(v).toFloat()
+        val num = if (Math.abs(v - rounded) < 0.05f) "%.0f".format(v)
+        else "%.1f".format(v)
+        return num.replace('-', '−') + " LUFS"
+    }
+
+    /** 增益的显示文本，例如 "−3.2 dB" / "+1.0 dB" / "0 dB" */
+    fun fmtGainDb(db: Float): String {
+        if (Math.abs(db) < 0.05f) return "0 dB"
+        val s = "%.1f".format(db)
+        return s.replace('-', '−') + " dB"
+    }
 
     /**
      * 主题模式。存的是 AppCompatDelegate.MODE_NIGHT_* 的值。

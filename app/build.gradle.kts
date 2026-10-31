@@ -37,8 +37,8 @@ android {
          *   · `release`（正式版）—— `0.1-release` 这种**产品版本**，
          *     不带构建序号；具体哪个构建看 versionCode。
          */
-        versionCode = 120                 // 与归档文件名里的 pXX 对齐
-        versionName = "0.1-p120"
+        versionCode = 130                 // 与归档文件名里的 pXX 对齐
+        versionName = "0.1-p130"
 
         if (!skipNative) {
             ndk {

@@ -89,6 +89,8 @@ add_library(hifiprobe SHARED
         dsd_reader.cpp
         media_probe.cpp
         resampler.cpp
+        loudness_meter.cpp
+        loudness_analyzer.cpp
         tone_source.cpp
         audio_engine.cpp
         )

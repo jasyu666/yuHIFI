@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var tvStatus: TextView
     private lateinit var tvReport: TextView
+    private lateinit var tvLoudnessMonitor: TextView
     private lateinit var spinnerRate: Spinner
     private var rateOptions: List<Int> = emptyList()
 
@@ -181,6 +182,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** 响度分析监控：队列明细 / 耗时 / 模式。只在诊断页可见时刷新。 */
+    private val loudnessMonitorTicker = object : Runnable {
+        override fun run() {
+            updateLoudnessMonitor()
+            mainHandler.postDelayed(this, 1500)
+        }
+    }
+
+    private fun updateLoudnessMonitor() {
+        if (!::tvLoudnessMonitor.isInitialized) return
+        tvLoudnessMonitor.text = buildString {
+            append(LoudnessAnalyzer.snapshotText())
+            if (PerfTrace.enabled) {
+                append("\n最近性能事件（${PerfTrace.logPath()}，丢 ${PerfTrace.droppedCount()} 条）：\n")
+                append(PerfTrace.recentText(30))
+            }
+        }
+    }
+
     /*
      * 原来这里有个 playTicker（每 500ms 读一次引擎信息、顺便判断"放完了没有"）。
      *
@@ -268,6 +288,8 @@ class MainActivity : AppCompatActivity() {
 
         tvStatus = findViewById(R.id.tvStatus)
         tvReport = findViewById(R.id.tvReport)
+        tvLoudnessMonitor = findViewById(R.id.tvLoudnessMonitor)
+        updateLoudnessMonitor()
         spinnerRate = findViewById(R.id.spinnerRate)
         tvFileInfo = findViewById(R.id.tvFileInfo)
         tvPlayStats = findViewById(R.id.tvPlayStats)
@@ -1794,6 +1816,7 @@ class MainActivity : AppCompatActivity() {
          * 注销**不影响播放**：推进队列的是服务，界面只是一块显示屏。
          */
         PlayerSession.removeListener(sessionListener)
+        mainHandler.removeCallbacks(loudnessMonitorTicker)
         if (fileSessionOpen) {
             append("⏸ 离开应用   播放位置 ${fmtTime(currentPositionMs())}   ${cpuAffinity()}  ${wakeLockState()}")
         }
@@ -1802,6 +1825,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         PlayerSession.addListener(sessionListener)
+        mainHandler.removeCallbacks(loudnessMonitorTicker)
+        loudnessMonitorTicker.run()
         // 回到前台先按当前状态重画一次，否则界面上是离开时的旧样子
         renderSessionState()
         if (fileSessionOpen) {
@@ -1856,6 +1881,14 @@ class MainActivity : AppCompatActivity() {
                     appendLine("ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
                     appendLine()
                     append(log)
+                    appendLine()
+                    appendLine("[响度分析监控]")
+                    append(LoudnessAnalyzer.snapshotText())
+                    appendLine()
+                    appendLine("[性能埋点]")
+                    appendLine("enabled=${PerfTrace.enabled} file=${PerfTrace.logPath()} " +
+                            "dropped=${PerfTrace.droppedCount()}")
+                    append(PerfTrace.recentText(200))
                 }
             )
             append("")
@@ -1873,6 +1906,7 @@ class MainActivity : AppCompatActivity() {
     // ---------------------------------------------------------------------
     private fun closeEverything() {
         mainHandler.removeCallbacks(statsTicker)
+        mainHandler.removeCallbacks(loudnessMonitorTicker)
         /*
          * 播放会话要显式收掉：队里可能还有歌，服务还在跑心跳。
          * 顺序不能反 —— 必须先把播放停干净、丢掉队列，再 nativeClose，

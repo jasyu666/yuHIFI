@@ -83,10 +83,25 @@ object Library {
         /** 目录 → 它的直接子目录。只含"子树里有曲目"的目录 */
         val childDirs: Map<String, List<String>>,
         /** 目录 → **递归**曲目数。音乐库每行显示的就是它，预先算好 */
-        val count: Map<String, Int>
+        val count: Map<String, Int>,
+        /**
+         * 专辑分组缓存。
+         *
+         * ★★ 以前 [albums] / [albumOf] 每次都遍历全库重新分组。
+         *   播放路径里 `LoudnessPolicy.albumFor()` 一次要调 4 次
+         *   （当前 + 接下来 3 首），decide/apply 再各调一次 ——
+         *   2829 首的库上每次约 550ms，切歌因此白停 3–5 秒。
+         *   分组只在 [replaceTracks] 时重建一次，之后全是 O(1) 查表。
+         */
+        val albums: List<Album>,
+        val albumByKey: Map<String, Album>,
+        val albumByUri: Map<String, Album>
     ) {
         companion object {
-            val EMPTY = Snap(emptyList(), emptyMap(), emptyMap(), emptyMap())
+            val EMPTY = Snap(
+                emptyList(), emptyMap(), emptyMap(), emptyMap(),
+                emptyList(), emptyMap(), emptyMap()
+            )
         }
     }
 
@@ -104,6 +119,16 @@ object Library {
 
     @Volatile
     var scanning: Boolean = false
+        private set
+
+    /**
+     * 曲目快照的版本号。**每次 [replaceTracks] 都会 +1**。
+     *
+     * 给响度后台扫描用：库没变就不必把全库任务重新排一遍。
+     * 它是"曲目集合可能变了"的廉价判据，不是内容哈希。
+     */
+    @Volatile
+    var version: Long = 0L
         private set
 
     /** 扫描进度回调：(已处理, 总数)。在后台线程调用。 */
@@ -125,6 +150,7 @@ object Library {
     /** **唯一**修改曲目的入口。索引跟着一起重建，两者不可能不同步 */
     private fun replaceTracks(list: List<Track>) {
         snap = buildSnap(list)
+        version++
     }
 
     /**
@@ -205,8 +231,25 @@ object Library {
             count[dir] = n
         }
 
+        // 专辑分组只在这里建一次；之后 albums()/albumOf() 都查缓存。
+        val albums = buildAlbums(list)
+        val albumByKey = HashMap<String, Album>(albums.size)
+        val albumByUri = HashMap<String, Album>(list.size)
+        for (a in albums) {
+            albumByKey[a.name] = a
+            for (t in a.tracks) albumByUri[t.uri] = a
+        }
+
         // childDirs 建的时候用 Set 去重，这里固化成 List —— 快照必须不可变
-        return Snap(list, byDir, childDirs.mapValues { it.value.toList() }, count)
+        return Snap(
+            list,
+            byDir,
+            childDirs.mapValues { it.value.toList() },
+            count,
+            albums,
+            albumByKey,
+            albumByUri
+        )
     }
 
     fun all(): List<Track> = tracks
@@ -238,9 +281,12 @@ object Library {
      * 返回按专辑名排序，组内按音轨号排不了（Track 里没存音轨号），
      * 退而用文件名 —— 至少同一张专辑的顺序是稳定的。
      */
-    fun albums(): List<Album> {
+    fun albums(): List<Album> = snap.albums
+
+    /** 只由 [buildSnap] 调；按专辑归并键分组，返回稳定排序的专辑列表。 */
+    private fun buildAlbums(list: List<Track>): List<Album> {
         val groups = LinkedHashMap<String, MutableList<Track>>()
-        for (t in tracks) {
+        for (t in list) {
             val key = albumKeyOf(t)
             groups.getOrPut(key) { mutableListOf() }.add(t)
         }
@@ -255,6 +301,25 @@ object Library {
     }
 
     const val UNKNOWN_ALBUM = "未知专辑"
+
+    /**
+     * 这一首所属的专辑 —— **沿用专辑页的同一套分组**。
+     *
+     * 响度平衡的"专辑模式"必须和用户在专辑页看到的完全是同一张专辑，
+     * 否则会出现"专辑页是一张、播放时按另一个口径归一化"的错位。
+     */
+    fun albumOf(track: Track): Album? {
+        // 绝大多数是库内曲目：直接按 uri 查缓存，O(1)。
+        snap.albumByUri[track.uri]?.let { return it }
+        // 外部/刚移出库的曲目仍按专辑归并键兜底，保持原语义。
+        return snap.albumByKey[albumKeyOf(track)]
+    }
+
+    /** 曲目在库内的相对路径；非库内文件返回 null。响度缓存的键就是它 */
+    fun relPathOf(track: Track): String? {
+        val p = track.localPath ?: return null
+        return runCatching { File(p).relativeTo(root).path }.getOrNull()
+    }
 
     /** 专辑的归并键：优先标签，其次文件夹名 */
     private fun albumKeyOf(t: Track): String {

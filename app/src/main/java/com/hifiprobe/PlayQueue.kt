@@ -82,6 +82,23 @@ class PlayQueue(private val random: Random = Random.Default) {
 
     fun current(): Track? = order.getOrNull(pos)?.let { items.getOrNull(it)?.track }
 
+    /**
+     * 按**播放顺序**取接下来 [count] 首（不含当前），给响度预分析用。
+     *
+     * ★ 不是按用户添加顺序 —— 开着随机时真正的下一首在 [order] 里。
+     *   末尾不环绕：预分析不需要猜测"循环后的第一首"。
+     */
+    fun upcomingTracks(count: Int): List<Track> {
+        if (count <= 0 || pos < 0 || order.isEmpty()) return emptyList()
+        val out = ArrayList<Track>(count)
+        var p = pos + 1
+        while (p < order.size && out.size < count) {
+            items.getOrNull(order[p])?.let { out.add(it.track) }
+            p++
+        }
+        return out
+    }
+
     /** 是不是最后一首（按播放顺序）。界面可以用来把「下一首」按钮置灰。 */
     val isAtEnd: Boolean get() = pos >= order.size - 1
 

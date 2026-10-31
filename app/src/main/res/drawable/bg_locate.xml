@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「定位到正在播放」那个圆按钮的底：正圆 + 主色填充。
+
+  ★ 外面那圈 2dp 的描边用的是**页面底色**，不是装饰 ——
+    这个按钮浮在列表卡片上，而卡片和按钮之间没有阴影（本 App 一律
+    用描边划边界，见 styles.xml 的说明）。没有这圈底色的话，深色主题下
+    主色圆会直接贴着卡片里的封面和文字，看起来像"某一行自带的控件"。
+
+  ★ 用 ripple 而不是纯 shape：浮层按钮离手指很近，没有按下反馈时
+    用户会怀疑自己点没点上。水波纹颜色走 press_on_brand —— 浅色主题下
+    按钮底是深墨绿、深色主题下是浅青，同一个白色/黑色都会有一边糊掉。
+
+  ★★ mask 那一层不能省。RippleDrawable 没有 mask 时，水波纹按**视图的
+     矩形边界**铺，而这个按钮是圆的 —— 四个角本来是透明的，波纹却会在
+     那儿亮起来，看着像个方形的白框闪一下。mask 把波纹裁进圆里。
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/press_on_brand">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/brand" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/bg" />
+        </shape>
+    </item>
+    <item android:id="@android:id/mask">
+        <shape android:shape="oval">
+            <solid android:color="@android:color/white" />
+        </shape>
+    </item>
+</ripple>

@@ -1,10 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 专辑页。网格铺开，一屏能扫到六到八张 -->
+<!--
+  专辑页。网格铺开，一屏能扫到六到八张。
+
+  ★★ 根布局上的 focusableInTouchMode 不能删。
+
+     这一页有个搜索框，而 EditText 是全页**唯一** focusableInTouchMode 的控件 ——
+     进页面时窗口会顺着这条找"谁该拿初始焦点"，找到它就把软键盘弹起来。
+     用户只是想翻专辑，一进来先挨一记键盘。
+
+     根布局自己声明成 touch 模式下可聚焦，初始焦点就落在它身上，
+     键盘要等手指真的点到搜索框才出来。
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rootAlbums"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
     android:orientation="vertical">
 
     <LinearLayout
@@ -19,7 +32,7 @@
 
         <ImageButton
             android:id="@+id/btnAlbumsBack"
-            style="@style/Btn.Icon"
+            style="@style/Btn.Icon.Back"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:contentDescription="@string/action_back"
@@ -70,6 +83,65 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/action_select_all"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!--
+      搜索框。**替代**了原来设想的右侧字母索引。
+
+      ★ 字母索引在专辑页效果不好：它只认**第一个字的首字母**，而专辑名
+        十有八九是中文 —— 用户想找「范特西」，得先知道它归在 F 还是 T 下面
+        （拼音是 F，但按笔画/英文名的人会去找 T）。字母条本身还不带搜索，
+        敲不了字。直接按专辑名/歌手名做**子串过滤**，输入什么都能中。
+
+      ★ 只按名字和歌手过滤，**不搜曲目名** —— 这一页列的是专辑，
+        搜到一张"里面有一首歌叫这个"的专辑，用户点进去还得再找一遍。
+    -->
+    <LinearLayout
+        android:id="@+id/rowAlbumSearch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_card_flat"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="2dp">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_search"
+            android:tint="@color/text_tertiary" />
+
+        <EditText
+            android:id="@+id/etAlbumSearch"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:background="@null"
+            android:gravity="center_vertical"
+            android:hint="@string/hint_search_album"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:maxLines="1"
+            android:paddingEnd="8dp"
+            android:singleLine="true"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_tertiary"
+            android:textSize="14sp" />
+
+        <ImageButton
+            android:id="@+id/btnSearchClear"
+            style="@style/Btn.Icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/action_clear_search"
+            android:src="@drawable/ic_close"
             android:visibility="gone" />
     </LinearLayout>
 
