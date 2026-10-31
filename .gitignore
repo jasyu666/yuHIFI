@@ -56,3 +56,6 @@ __pycache__/
 *__pycache__/
 tools/.upload-host.txt
 tools/.upload-ui.txt
+
+# 性能测试用 Android 可执行文件（用 NDK 按需重编，不入库）
+tools/loudness_bench

@@ -2,9 +2,12 @@ package com.hifiprobe
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
@@ -24,6 +27,15 @@ import java.util.concurrent.Executors
  *
  * ★ 封面尺寸由代码算好塞进条目里，不写死 dp ——
  *   2 列网格在 360dp 和 430dp 的屏上，写死尺寸不是留白太多就是挤掉边距。
+ *
+ * ★ 顶上有个**搜索框**，按专辑名 / 歌手名过滤。
+ *
+ *   原本打算照搬「所有歌曲」页的右侧字母索引，**放弃了**：那个索引只认
+ *   第一个字的首字母，而专辑名十有八九是中文 —— 想找「范特西」得先知道
+ *   它归在 F（拼音）还是 T（英文名）下面。搜索是输入什么都能中，
+ *   对中文曲库来说这才是有用的那个。
+ *
+ *   ★ 过滤是**纯内存**的（在 [allAlbums] 上跑），不重新扫库，见 [applyQuery]。
  */
 class AlbumsActivity : AppCompatActivity(), PlayerSession.Listener {
 
@@ -35,7 +47,23 @@ class AlbumsActivity : AppCompatActivity(), PlayerSession.Listener {
     private val adapter = AlbumAdapter()
     private val io = Executors.newSingleThreadExecutor { r -> Thread(r, "albums-io") }
 
+    /**
+     * **当前显示**的专辑（搜索之后的那一份）。
+     *
+     * ★ 多选、全选、"勾了几张"全走它 —— 屏幕上看到几张就是几张，
+     *   和别的列表页一致。原始那份在 [allAlbums]，只在过滤时读。
+     */
     private var albums: List<Library.Album> = emptyList()
+
+    /** 库里全部的专辑。搜索**不重新扫库**，只在这份上过滤 */
+    private var allAlbums: List<Library.Album> = emptyList()
+
+    /** 当前搜索词。空串 = 不过滤 */
+    private var query: String = ""
+
+    private lateinit var rowSearch: View
+    private lateinit var etSearch: EditText
+    private lateinit var btnSearchClear: ImageButton
 
     /** 网格单元里封面能占的边长（px）。首帧先用屏幕宽估一个，布局出来后再校准 */
     private var cellPx = 0
@@ -87,6 +115,11 @@ class AlbumsActivity : AppCompatActivity(), PlayerSession.Listener {
             }
         }
 
+        rowSearch = findViewById(R.id.rowAlbumSearch)
+        etSearch = findViewById(R.id.etAlbumSearch)
+        btnSearchClear = findViewById(R.id.btnSearchClear)
+        setupSearch()
+
         val btnBack = findViewById<ImageButton>(R.id.btnAlbumsBack)
         btnBack.setOnClickListener { if (sel.active) exitSelect() else finish() }
 
@@ -112,12 +145,80 @@ class AlbumsActivity : AppCompatActivity(), PlayerSession.Listener {
             val list = Library.albums()
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
-                albums = list
-                adapter.notifyDataSetChanged()
-                tvAlbumsCount.text = if (list.isEmpty()) "" else "${list.size} 张 · ${list.sumOf { it.size }} 首"
-                rvAlbums.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
-                tvAlbumsEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+                allAlbums = list
+                applyQuery()
             }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    //  搜索
+    // ------------------------------------------------------------------
+
+    private fun setupSearch() {
+        etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                val q = s?.toString().orEmpty()
+                if (q == query) return
+                query = q
+                applyQuery()
+            }
+        })
+        // 清空走 setText，让上面那个 watcher 统一处理 —— 两处各清各的迟早对不上
+        btnSearchClear.setOnClickListener { etSearch.setText("") }
+    }
+
+    /**
+     * 按当前 [query] 过滤并重画。
+     *
+     * ★ 纯内存过滤，**不下 io 线程**：专辑数量是"几十到几百"这个量级，
+     *   比曲目少一个数量级，逐条 contains 一遍是微秒级的。
+     *   （真到了几千张再挪，那时也该换成索引而不是每次都全扫。）
+     *
+     * ★ 每次过滤都**滚回顶部**：结果集换了一批，还停在原来的滚动位置
+     *   等于让用户对着一片空白往下找。
+     */
+    private fun applyQuery() {
+        val q = query.trim()
+        albums =
+            if (q.isEmpty()) allAlbums
+            else allAlbums.filter { matches(it, q) }
+
+        adapter.notifyDataSetChanged()
+        renderHeader()
+
+        if (q.isNotEmpty()) rvAlbums.scrollToPosition(0)
+        btnSearchClear.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    /**
+     * 专辑名或歌手名里含这个词就算命中。**大小写不敏感** ——
+     * 英文专辑名用户多半是随手打几个小写字母。
+     */
+    private fun matches(a: Library.Album, q: String): Boolean =
+        a.name.contains(q, ignoreCase = true) ||
+                (a.artist?.contains(q, ignoreCase = true) ?: false)
+
+    private fun renderHeader() {
+        val empty = albums.isEmpty()
+        rvAlbums.visibility = if (empty) View.GONE else View.VISIBLE
+        tvAlbumsEmpty.visibility = if (empty) View.VISIBLE else View.GONE
+        tvAlbumsEmpty.text = if (allAlbums.isEmpty()) {
+            getString(R.string.empty_albums)
+        } else {
+            // 搜不到和"库里没有专辑"是两回事，文案必须分开说，
+            // 否则用户会以为专辑全没了
+            getString(R.string.empty_album_search, query.trim())
+        }
+
+        tvAlbumsCount.text = when {
+            allAlbums.isEmpty() -> ""
+            query.isBlank() -> "${albums.size} 张 · ${albums.sumOf { it.size }} 首"
+            // 搜的时候**两个数都给** —— 只报"找到 2 张"的话，
+            // 用户不知道是库里就两张，还是搜索漏了
+            else -> "找到 ${albums.size} 张 · 共 ${allAlbums.size} 张"
         }
     }
 
@@ -162,6 +263,12 @@ class AlbumsActivity : AppCompatActivity(), PlayerSession.Listener {
         btnSelectAll.visibility = if (on) View.VISIBLE else View.GONE
         if (on) selHeader.enter() else selHeader.exit()
         if (!on) tvAlbumsHeading.text = titleBeforeSelect
+        /*
+         * 多选时把搜索框收起来。和顶栏那几个按钮同一条规矩：
+         * 一边选着一边把列表过滤掉，"我选了哪几张"立刻就说不清了
+         * （选中的专辑可能被过滤出屏幕，但计数还把它算着）。
+         */
+        rowSearch.visibility = if (on) View.GONE else View.VISIBLE
         adapter.notifyDataSetChanged()
         renderSelection()
     }

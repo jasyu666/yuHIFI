@@ -173,6 +173,70 @@
         </LinearLayout>
 
         <!--
+          上限 / 下限：和设置页同一套边界，只是这里用紧凑的滑条。
+          ★ 响度的详细信息已经在「源」面板里，这一页不再单独占一行。
+        -->
+        <LinearLayout
+            android:id="@+id/rowVolCeiling"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/volume_ceiling" />
+
+            <SeekBar
+                android:id="@+id/seekVolCeilingNp"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tvVolCeilingNp"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:gravity="end"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rowVolFloor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/volume_floor" />
+
+            <SeekBar
+                android:id="@+id/seekVolFloorNp"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tvVolFloorNp"
+                style="@style/Text.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:gravity="end"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!--
           ④ DSD 警告 —— **只在"音量控制开着 + 当前这首是 DSD"时出现**。
 
           ★ 设置页那条红的说的是通例；这一条说的是**此时此刻**，

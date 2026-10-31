@@ -336,22 +336,27 @@ class PlaybackService : Service(), PlayerSession.Listener {
             )
         ).build()
 
-    private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
-        this, 0,
+    private fun openAppIntent(): PendingIntent {
         /*
-         * ★★ 正式版**不能跳诊断页** —— 那是内部版的调试入口，
-         *    普通用户点一下通知落到一个满是 URB、描述符的页面上，只会莫名其妙。
-         *    正式版跳首页（那里有正在播放的迷你条）。
+         * ★ 通知栏点击必须落到用户期待的页面：
+         *   · 有当前曲目（播放中 / 暂停 / 恢复出来的队列）→ 正在播放页
+         *   · 没有曲目 → 首页
          *
-         *    ★ 内部版保持原样：开发时从通知直接进诊断页挺方便。
+         * 原来固定指向 MainActivity（旧的测试/诊断页），用户实测点通知
+         * 直接进测试页。这里按 PlayerSession.current 选目标。
+         *
+         * 两个目标用不同 requestCode，避免 PendingIntent 复用旧的 component。
          */
-        Intent(
-            this,
-            if (diagnosticsEnabled(this)) MainActivity::class.java
-            else HomeActivity::class.java
-        ).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-    )
+        val hasTrack = PlayerSession.current != null
+        val target = if (hasTrack) NowPlayingActivity::class.java else HomeActivity::class.java
+        val requestCode = if (hasTrack) 1 else 2
+        return PendingIntent.getActivity(
+            this, requestCode,
+            Intent(this, target)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
 
     /** 只在真的换了曲目/状态时才重建通知，避免每 200ms 刷一次 */
     private var lastNotified: String? = null

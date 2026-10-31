@@ -34,6 +34,11 @@ import java.util.concurrent.Executors
  *
  * 播放本身不在这里跑（那是 [PlayerSession] + [PlaybackService] 的事），
  * 这里只是一块显示屏加几个入口。
+ *
+ * ★ 右下角有「定位到正在播放」（[LocateCurrent]），但这一页的语义和别处不同：
+ *   音乐库是**一层层进**的，正在播的那首多半不在当前这一层。所以按下去会
+ *   自动进到它所在的文件夹再定位（[enterFolderOfPlaying]），而不是弹一句
+ *   "不在这个列表里" —— 后者在这一页几乎永远成立，等于没有这个功能。
  */
 class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
 
@@ -51,6 +56,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
     private lateinit var tvBreadcrumb: TextView
     private lateinit var pbScan: android.widget.ProgressBar
     private lateinit var miniBar: MiniBar
+    private lateinit var locate: LocateCurrent
 
     // ---- 多选 ----
     private val sel = Selection()
@@ -150,6 +156,20 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
 
         rvTracks.layoutManager = LinearLayoutManager(this)
         rvTracks.adapter = adapter
+
+        /*
+         * 定位按钮。**这一页的兜底和别处不一样**：音乐库是按文件夹一层层进的，
+         * 正在播的那首绝大多数时候不在当前这一层。所以找不到时不是弹一句
+         * "不在这个列表里"，而是自动进到它所在的文件夹再定位。
+         *
+         * ★ 用 Library.folderOf（曲目 → 库内相对目录），不自己拼路径 ——
+         *   拼路径要处理分隔符和越界，那边已经有现成的、带越界检查的实现。
+         */
+        locate = LocateCurrent(
+            this, findViewById(R.id.btnLocate), rvTracks,
+            target = { adapter.positionOfSong(PlayerSession.current?.uri) },
+            fallback = { enterFolderOfPlaying() }
+        )
 
         Ui.applySystemBars(findViewById(R.id.rootLibrary))
 
@@ -275,6 +295,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         }
         adapter.notifyDataSetChanged()
         renderSelection()
+        renderLocate()
     }
 
     private fun renderSelection() {
@@ -541,6 +562,59 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         rvTracks.visibility = if (empty) View.GONE else View.VISIBLE
         tvEmpty.text = if (folder.isEmpty()) getString(R.string.empty_library)
         else "该文件夹为空\n\n长按曲目选择「移动到…」可将其移入"
+
+        renderLocate()
+    }
+
+    /**
+     * 定位按钮的显隐。
+     *
+     * 两处会改它：列表重画（空不空）和进出多选。收起的理由和
+     * [TrackListActivity] 那边共用一套 —— 空列表没得跳，多选时让位。
+     */
+    private fun renderLocate() {
+        locate.suppressed = sel.active || rvTracks.visibility != View.VISIBLE
+        locate.render()
+    }
+
+    /**
+     * 正在播的那首不在当前这一层 —— 进到它所在的文件夹再定位。
+     *
+     * @return true 表示已经跳过去了（[LocateCurrent] 据此决定要不要再弹提示）
+     */
+    private fun enterFolderOfPlaying(): Boolean {
+        val t = PlayerSession.current ?: return false
+        val dir = Library.folderOf(t)
+
+        // 已经站在它所在的目录里却还是没找到：说明它确实不在这一层的列表里
+        // （比如刚被删掉/移走），那就老老实实让上层弹提示，别原地打转
+        if (dir == folder) return false
+
+        /*
+         * ★ 先**确认它真的在那个目录里**，再动 folder。
+         *
+         *   folderOf 是从曲目的 localPath 推出来的，而 localPath 理论上可能是
+         *   空的（SAF 导进来的条目就没有）。那种情况下 dir 会是空串，
+         *   直接跳过去 = 把用户莫名其妙地弹回库根，然后弹一句"不在列表里"。
+         *   宁可什么都不做，也不要"跳到一个错的地方再说找不到"。
+         */
+        if (Library.tracksIn(dir).none { it.uri == t.uri }) return false
+
+        folder = dir
+        refreshList()
+
+        val i = adapter.positionOfSong(t.uri)
+        if (i < 0) return false
+        /*
+         * ★ refreshList 刚把新内容交出去，这一刻 RecyclerView 还没重新测量，
+         *   直接 scrollToPositionWithOffset 会滚到一个已经不存在的位置上。
+         *   挂到 post 里，等这一帧的布局跑完再滚。
+         */
+        rvTracks.post {
+            (rvTracks.layoutManager as? LinearLayoutManager)
+                ?.scrollToPositionWithOffset(i, dp(8))
+        }
+        return true
     }
 
     private fun joinRel(parent: String, name: String) =
@@ -720,6 +794,7 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
 
     private fun renderSession() {
         miniBar.render()
+        locate.render()
 
         /*
          * 列表只在**真的换歌**时才重画。
@@ -745,6 +820,17 @@ class LibraryActivity : AppCompatActivity(), PlayerSession.Listener {
         fun submit(list: List<Row>) {
             rows = list
             notifyDataSetChanged()
+        }
+
+        /**
+         * 某一首曲目在**当前 rows 里**的行号，-1 = 没有。
+         *
+         * ★ rows 里混着文件夹行，所以"第几首歌"和"第几行"不是一回事 ——
+         *   定位按钮要的是行号。
+         */
+        fun positionOfSong(uri: String?): Int {
+            if (uri == null) return -1
+            return rows.indexOfFirst { it is Row.Song && it.track.uri == uri }
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =

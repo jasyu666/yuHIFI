@@ -138,6 +138,24 @@ object Playlists {
         return gone
     }
 
+    /**
+     * 批量按 uri 移除，**只落盘一次**。
+     *
+     * ★ 多选「从歌单移除」千万不要逐条调 [removeUri] ——
+     *   那样每删一首都会把整个 playlists.json 重写一遍，
+     *   歌单几百首时会出现明显的卡顿。
+     */
+    @Synchronized
+    fun removeUrisFrom(id: String, uris: Collection<String>): Int {
+        if (uris.isEmpty()) return 0
+        val p = lists.firstOrNull { it.id == id } ?: return 0
+        val before = p.uris.size
+        p.uris.removeAll(uris.toHashSet())
+        val n = before - p.uris.size
+        if (n > 0) save()
+        return n
+    }
+
     @Synchronized
     fun removeAt(id: String, index: Int): Boolean {
         val p = lists.firstOrNull { it.id == id } ?: return false

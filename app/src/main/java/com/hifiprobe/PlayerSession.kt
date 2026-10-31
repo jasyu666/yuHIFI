@@ -105,6 +105,7 @@ object PlayerSession {
             android.util.Log.e("HiFiSession", "交叉馈送设置没推下去: $it")
         }
         applySoftwareVolume(h)
+        applyLoudnessGain(h)
     }
 
     /**
@@ -125,8 +126,73 @@ object PlayerSession {
         }
     }
 
-    /** 音量滑条动了 → 立刻推下去（原子变量，解码线程下个块就生效） */
+    /**
+     * 音量滑条动了 → 立刻推下去（原子变量，解码线程下个块就生效）。
+     *
+     * ★★ 这里**不重算响度**：响度增益和用户音量是两回事，拖音量滑条
+     *    不会改变响度决策。以前顺手调了 applyLoudnessGain()，它要遍历
+     *    Library.albums()/算专辑指纹 —— 拖滑条时每一格都做一遍会明显卡顿。
+     *    音量控制开关切换时才由设置页显式调 refreshLoudness()。
+     */
     fun refreshSoftwareVolume() = applySoftwareVolume(handle)
+
+    /**
+     * 设置页改了响度开关/目标/模式 → 重算当前曲目的增益。
+     *
+     * ★ 放到 [worker] 上：决策要读 Library 分组和缓存，别占主线程。
+     */
+    fun refreshLoudness() {
+        worker.execute {
+            applyLoudnessGain(handle)
+            postState()
+        }
+    }
+
+    /**
+     * 把响度决策推给引擎，并更新界面可读的状态。
+     *
+     * ★ 无论功能开没开都要调：换曲时它负责把上一首的增益归零。
+     * ★ 只在"决策真的变了"时写一行会话日志，避免每次换 handler 都刷屏。
+     */
+    private fun applyLoudnessGain(h: Long) {
+        if (h == 0L) return
+        val ctx = appContext ?: return
+
+        val t = current
+        val d = if (t != null) LoudnessPolicy.decide(ctx, t) else null
+        val on = Settings.loudnessEnabled(ctx)
+
+        runCatching {
+            /*
+             * 开关和增益**一次推**（原生侧同一把锁里一起设）：
+             * ★ 响度与音量控制已解耦，音量关着时响度仍要处理；
+             * ★ 功能关着时即使缓存里还有旧增益，也必须把开关关掉。
+             */
+            NativePlayer.nativeSetLoudness(h, on, d?.gainDb ?: 0f)
+        }.onFailure {
+            android.util.Log.e("HiFiSession", "响度增益没推下去: $it")
+        }
+        loudnessDecision = d
+
+        if (d != null) {
+            val key = "${t?.uri}|${d.source}|${d.gainDb}|${d.clamped}"
+            if (key != lastLoudnessLogKey) {
+                lastLoudnessLogKey = key
+                val lufs = "%.2f".format(d.measuredLufs).replace('-', '−')
+                val tp = "%.2f".format(d.truePeakDb).replace('-', '−')
+                val src = if (d.source == LoudnessPolicy.Source.ALBUM) "专辑" else "单曲"
+                val clamp = if (d.clamped) " · 真峰值限制" else ""
+                postLog(
+                    "响度平衡：目标 ${Settings.fmtLufs(d.targetLufs)}，" +
+                            "实测 $lufs LUFS，真峰值 $tp dBTP → " +
+                            "${Settings.fmtGainDb(d.gainDb)}（$src$clamp）"
+                )
+            }
+        } else {
+            // 功能关闭 / DSD / 无测量：允许下次重新记录
+            lastLoudnessLogKey = null
+        }
+    }
 
     /**
      * 用户在设置页改了开关或档位 → 立刻推给当前引擎。
@@ -202,6 +268,18 @@ object PlayerSession {
     @Volatile
     var current: Track? = null
         private set
+
+    /**
+     * 当前曲目实际采用的响度决策。null = 功能关 / DSD / 还没测出来。
+     *
+     * ★ 正在播放页读它显示「响度 −3.2 dB · 单曲/专辑」。
+     *   它和 [loudnessAppliedKey] 一起避免同一条结果反复刷日志。
+     */
+    @Volatile
+    var loudnessDecision: LoudnessPolicy.Decision? = null
+        private set
+
+    private var lastLoudnessLogKey: String? = null
 
     @Volatile
     var durationMs: Long = 0L
@@ -425,8 +503,32 @@ object PlayerSession {
     /**
      * 库扫描完成之后由界面调一次 —— 把队列恢复提前到用户看得见的时候，
      * 而不是干等下一次进首页。
+     *
+     * ★ 响度后台扫描也在这里接上：库刚扫完，`Library.all()` 才有内容。
      */
-    fun onLibraryReady() = restoreQueueIfNeeded()
+    fun onLibraryReady() {
+        restoreQueueIfNeeded()
+        appContext?.let { LoudnessAnalyzer.onLibraryReady(it) }
+    }
+
+    /**
+     * 分析器完成了一首/一张专辑 → 如果它仍是当前曲目，重算并推增益。
+     *
+     * ★ 跑在分析线程上，必须投到 [worker]：`current` 和引擎操作都在那条线上。
+     */
+    fun onLoudnessMeasured(trackUri: String?, album: String?) {
+        worker.execute {
+            val t = current ?: return@execute
+            if (trackUri != null && t.uri != trackUri) return@execute
+            if (album != null) {
+                val ctx = appContext ?: return@execute
+                val a = LoudnessPolicy.albumFor(ctx, t) ?: return@execute
+                if (a.name != album) return@execute
+            }
+            applyLoudnessGain(handle)
+            postState()
+        }
+    }
 
     fun addListener(l: Listener) {
         synchronized(listeners) { if (l !in listeners) listeners.add(l) }
@@ -943,6 +1045,10 @@ object PlayerSession {
      *   5. **在空闲态**下发采样率，然后才切 alt —— 顺序反了会没声音
      */
     private fun playLocked(track: Track) {
+        val playT0 = SystemClock.elapsedRealtime()
+        PerfTrace.mark("play.begin", "track" to track.displayTitle,
+            "uri" to track.uri)
+
         /*
          * ★ 收听时长的**每曲一次**检查点。
          *
@@ -1004,7 +1110,11 @@ object PlayerSession {
             runCatching { NativePlayer.nativeStop(h) }
         }
         // 上一个文件会话要收干净，否则 claim 会 BUSY
-        closeCurrentLocked()
+        PerfTrace.span("play.close") { closeCurrentLocked() }
+
+        // 换曲先把上一首的响度状态清掉，别让界面在新曲分析完之前还显示旧值
+        loudnessDecision = null
+        lastLoudnessLogKey = null
 
         setState(State.OPENING)
         current = track
@@ -1025,6 +1135,8 @@ object PlayerSession {
         persistQueue()
 
         postLog("▶ ${track.displayTitle}  —  ${track.displayArtist}")
+        val openT0 = SystemClock.elapsedRealtime()
+        var deviceT0 = openT0
 
         try {
             val ctx = appContext
@@ -1038,13 +1150,15 @@ object PlayerSession {
              * 库内文件**不要**绕 ContentResolver —— 它对 file:// 的支持在
              * 各版本上并不一致，而 ParcelFileDescriptor.open 是直路。
              */
-            val pfd = if (track.isLocalFile) {
-                ParcelFileDescriptor.open(
-                    java.io.File(track.localPath!!),
-                    ParcelFileDescriptor.MODE_READ_ONLY
-                )
-            } else {
-                ctx.contentResolver.openFileDescriptor(Uri.parse(track.uri), "r")
+            val pfd = PerfTrace.span("play.fd.open", "local" to track.isLocalFile) {
+                if (track.isLocalFile) {
+                    ParcelFileDescriptor.open(
+                        java.io.File(track.localPath!!),
+                        ParcelFileDescriptor.MODE_READ_ONLY
+                    )
+                } else {
+                    ctx.contentResolver.openFileDescriptor(Uri.parse(track.uri), "r")
+                }
             } ?: throw IllegalStateException("无法打开该文件。")
 
             /*
@@ -1052,12 +1166,54 @@ object PlayerSession {
              * **不要**再调 pfd.close()：detach 之后这个 fd 已经不归它管，
              * 再关一次就会把原生层正在读的 fd 关掉。
              */
-            val fd = pfd.detachFd()
+            val fd = PerfTrace.span("play.fd.detach") { pfd.detachFd() }
 
             // ★ 输出模式必须在开文件之前交给引擎（速率决策发生在 open() 里面）
-            NativePlayer.nativeSetOutputMode(h, sysRate)
+            PerfTrace.span("play.outputMode", "sysRate" to sysRate) {
+                NativePlayer.nativeSetOutputMode(h, sysRate)
+            }
 
-            val openMsg = NativePlayer.nativeOpenFile(h, fd)
+            /*
+             * 响度平衡：**在开文件之前**把这一首的增益推下去。
+             *
+             * ★ 引擎 open() 里会做一次起播预灌，那一段必须用新曲目的增益；
+             *   交叉馈送当年就是漏了这里，导致每首歌开头一秒没效果。
+             * ★ 专辑测量优先。还没有专辑结果时先用单曲值当临时桥；
+             *   专辑结果到达后由 onLoudnessMeasured() 斜坡切过去。
+             * ★ 最多等 3 秒。超时先以 0dB 起播，分析继续跑，
+             *   完成后再补 —— 不让用户对着"点了没反应"等更久。
+             */
+            val loudT0 = SystemClock.elapsedRealtime()
+            if (LoudnessPolicy.enabled(ctx) && !LoudnessPolicy.isDsd(track)) {
+                PerfTrace.span("play.loudness.start") {
+                    if (!LoudnessAnalyzer.isRunning()) LoudnessAnalyzer.start(ctx)
+                }
+                PerfTrace.span("play.loudness.prioritize") {
+                    LoudnessAnalyzer.prioritizeForPlayback(track, queue.upcomingTracks(3))
+                }
+                val decision = PerfTrace.span("play.loudness.decide") {
+                    LoudnessPolicy.decide(ctx, track)
+                }
+                PerfTrace.mark("play.loudness.cache",
+                    "hit" to (decision != null),
+                    "state" to LoudnessStore.describe(track),
+                    "elapsedMs" to (SystemClock.elapsedRealtime() - loudT0))
+                if (decision == null) {
+                    postLog("响度分析中…")
+                    PerfTrace.span("play.loudness.ensure") {
+                        LoudnessAnalyzer.ensureTrack(track, 3000)
+                    }
+                }
+            }
+            PerfTrace.span("play.loudness.apply") { applyLoudnessGain(h) }
+            PerfTrace.mark("play.loudness.total",
+                "ms" to (SystemClock.elapsedRealtime() - loudT0))
+            PerfTrace.mark("play.preOpen",
+                "ms" to (SystemClock.elapsedRealtime() - openT0))
+
+            val openMsg = PerfTrace.span("play.nativeOpen") {
+                NativePlayer.nativeOpenFile(h, fd)
+            }
             if (openMsg.isNotBlank()) postLog(openMsg.trim())
             if (!NativePlayer.nativeEngineReady(h)) {
                 throw IllegalStateException("引擎无法打开该文件。")
@@ -1066,6 +1222,7 @@ object PlayerSession {
             sessionOpen = true
 
             // 引擎已按源文件决定输出速率与线格式，设备这边只能去适配
+            deviceT0 = SystemClock.elapsedRealtime()
             val info = NativePlayer.nativeEngineInfo(h)
             val outRate = info[NativePlayer.EngineInfo.OUTPUT_RATE].toInt()
             val ch = info[NativePlayer.EngineInfo.CHANNELS].toInt()
@@ -1088,6 +1245,15 @@ object PlayerSession {
             current = filled
 
             val isDsd = info[NativePlayer.EngineInfo.IS_DSD] == 1L
+
+            /*
+             * DSD 明确排除：raw DSD 位流不经过 PCM 域，没法在 DSD 域乘增益。
+             * 扩展名判断可能漏（magic 才是权威），所以引擎确认之后强制归零。
+             */
+            if (isDsd) {
+                NativePlayer.nativeSetLoudness(h, false, 0f)
+                loudnessDecision = null
+            }
 
             /*
              * ★★ 输出走哪条路，在这里分岔。
@@ -1163,7 +1329,11 @@ object PlayerSession {
                 postLog("时长：${durationMs / 1000} 秒")
             }
         } catch (e: Exception) {
+            loudnessDecision = null
             lastError = "${e.javaClass.simpleName}: ${e.message}"
+            PerfTrace.mark("play.fail",
+                "ms" to (SystemClock.elapsedRealtime() - playT0),
+                "error" to lastError)
             postLog("✗ $lastError")
             // 用户看得见的那一份 —— 光有日志等于"点了没反应"
             e.message?.let { notifyFailed(it) }
@@ -1175,8 +1345,13 @@ object PlayerSession {
             return
         }
 
+        PerfTrace.mark("play.device",
+            "ms" to (SystemClock.elapsedRealtime() - deviceT0))
         startResources()
         setState(State.PLAYING)
+        PerfTrace.mark("play.total",
+            "ms" to (SystemClock.elapsedRealtime() - playT0),
+            "track" to track.displayTitle)
     }
 
     /**

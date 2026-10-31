@@ -16,10 +16,15 @@
     <color name="text_secondary">#FF94A5B8</color>
     <color name="text_tertiary">#FF6B7D91</color>
 
+    <!-- 深色下的返回箭头：更亮的薄荷绿，和近白正文区分开 -->
+    <color name="back_arrow">#FF6FE3C2</color>
+
     <!-- 深色下主色要提亮，否则 #12796B 在暗底上发闷、对比度不够 -->
     <color name="brand">#FF4FB3A1</color>
     <color name="on_brand">#FF06231E</color>
     <color name="brand_soft">#264FB3A1</color>
+    <!-- 深色下按钮底是**浅青**，所以要压黑才看得出水波纹。理由同 values/colors.xml -->
+    <color name="press_on_brand">#3306231E</color>
 
     <color name="ok">#FF4ADE80</color>
     <color name="ok_soft">#264ADE80</color>

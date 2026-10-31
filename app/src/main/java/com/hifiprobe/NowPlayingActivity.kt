@@ -46,15 +46,44 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
     private lateinit var seek: SeekBar
 
     // ---- 音量（只在设置里开了「音量控制」时可见）----
-    private lateinit var rowVolume: android.view.View
-    private lateinit var seekVolume: SeekBar
-    private lateinit var tvVolume: TextView
+
+    /*
+     * ★★★ 这五个**必须是可空的**，不能再用 `lateinit`。
+     *
+     *   2026-10-06 横屏闪退的根因就在这里：竖屏布局有它们、横屏布局**一个都没有**，
+     *   而 `findViewById` 对不存在的 id 返回 null —— 赋给 `lateinit var`
+     *   **编译通过、赋值也不报错**，要等**第一次读它**才抛
+     *   `UninitializedPropertyAccessException`，而且栈指向 onCreate。
+     *
+     *   → 表现是"一进播放页就闪退"，栈看着像初始化顺序问题，
+     *     实则是**布局里缺控件**。要绕好大一圈才看得出来。
+     *
+     *   改成可空之后：布局里没有就少接几条线，绝不崩。
+     *   ★ 以后再加布局变体（平板、分栏…）不会再踩这个坑。
+     */
+    private var rowVolume: android.view.View? = null
+    private var seekVolume: SeekBar? = null
+    private var tvVolume: TextView? = null
 
     /** 音量锁开关（两态图标）。★ 见 [renderVolume] */
-    private lateinit var btnVolLock: android.widget.ImageButton
+    private var btnVolLock: android.widget.ImageButton? = null
 
     /** ④ DSD 警告。★ 只在"音量控制开着 + 当前这首是 DSD"时可见 */
-    private lateinit var tvVolWarn: TextView
+    private var tvVolWarn: TextView? = null
+
+    /*
+     * 竖屏下的上限 / 下限两条。
+     *
+     * ★ 横屏**不显示**（用户 2026-10-17 定：横屏只保留主音量，给封面/控制留空间）。
+     *   视图在 layout-land 里仍然存在（id 集合必须一致），由 renderVolume() 强制 GONE。
+     * ★ 全部可空：布局变体缺件时少接几条线，绝不崩。
+     */
+    private var rowVolCeiling: View? = null
+    private var seekVolCeiling: SeekBar? = null
+    private var tvVolCeiling: TextView? = null
+    private var rowVolFloor: View? = null
+    private var seekVolFloor: SeekBar? = null
+    private var tvVolFloor: TextView? = null
 
     /*
      * ★ 这里原来有个 `volSteps = 200` 的常量，已删除 ——
@@ -258,26 +287,60 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
         tvVolume = findViewById(R.id.tvVolumeNp)
         btnVolLock = findViewById(R.id.btnVolLock)
         tvVolWarn = findViewById(R.id.tvVolWarn)
+        rowVolCeiling = findViewById(R.id.rowVolCeiling)
+        seekVolCeiling = findViewById(R.id.seekVolCeilingNp)
+        tvVolCeiling = findViewById(R.id.tvVolCeilingNp)
+        rowVolFloor = findViewById(R.id.rowVolFloor)
+        seekVolFloor = findViewById(R.id.seekVolFloorNp)
+        tvVolFloor = findViewById(R.id.tvVolFloorNp)
 
         /*
          * 锁：点一下翻转。★ 它是**播放页唯一的开锁入口** ——
          * 锁上之后滑条拖不动，用户要是只能回设置页解锁，这个锁就成了陷阱。
          */
-        btnVolLock.setOnClickListener {
+        // ★ `?.` 不是凑数的：布局里没有这一块时（见字段声明那儿的长注释）就少接一条线
+        btnVolLock?.setOnClickListener {
             Settings.setVolumeLocked(this, !Settings.volumeLocked(this))
             renderVolume()
         }
 
         // 范围和位置由 renderVolume() 按存储统一设，这里不写死
-        seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        seekVolume?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
                 val db = volDbOf(progress)
                 Settings.setVolumeDb(this@NowPlayingActivity, db)
                 PlayerSession.refreshSoftwareVolume()
-                tvVolume.text = fmtVol(db)
+                tvVolume?.text = fmtVol(db)
                 // 徽章要跟着变（0dB 和 −12dB 的口径不同）
                 PlayerSession.current?.let { renderBadge(it) }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
+
+        /*
+         * 上限 / 下限。和设置页共用 Settings 的夹取与刻度；
+         * 拖动后重画一次 renderVolume()，让主音量的可拖范围和数值一起跟上。
+         * ★ 程序化设置的 progress 会以 fromUser=false 回调，不会递归。
+         */
+        seekVolCeiling?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                Settings.setVolumeCeilingDb(this@NowPlayingActivity, volDbOf(progress))
+                PlayerSession.refreshSoftwareVolume()
+                renderVolume()
+            }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
+
+        seekVolFloor?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                Settings.setVolumeFloorDb(this@NowPlayingActivity, volDbOf(progress))
+                PlayerSession.refreshSoftwareVolume()
+                renderVolume()
             }
             override fun onStartTrackingTouch(sb: SeekBar) {}
             override fun onStopTrackingTouch(sb: SeekBar) {}
@@ -290,9 +353,30 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
     private fun fmtVol(db: Float) = Settings.fmtVolumeDb(db)
 
     private fun renderVolume() {
+        /*
+         * ★★ 先取成非空局部变量，**任一个为 null 就直接返回**。
+         *
+         *   它们在这个布局里是**同进同出**的（都在「音量行」那一个块里），
+         *   所以缺一个就说明这个布局变体压根没有音量行 —— 没什么可渲染的。
+         *
+         *   ★ 不这么做的话，下面每一处都得写 `?.`，漏一处就出事；
+         *     而且 `rowVolume?.visibility = …` 这种写法本身就是错的
+         *     （`?.` 后面只能调方法，不能赋值属性）。
+         */
+        val row = rowVolume ?: return
+        val seek = seekVolume ?: return
+        val tv = tvVolume ?: return
+        val lock = btnVolLock ?: return
+        val warn = tvVolWarn ?: return
+
         val on = Settings.volumeControl(this)
         val locked = Settings.volumeLocked(this)
-        rowVolume.visibility = if (on) View.VISIBLE else View.GONE
+        row.visibility = if (on) View.VISIBLE else View.GONE
+
+        // 横屏只保留主音量：上限/下限两条强制隐藏，给封面和控制留空间
+        val showLimits = on && !isLandscape()
+        rowVolCeiling?.visibility = if (showLimits) View.VISIBLE else View.GONE
+        rowVolFloor?.visibility = if (showLimits) View.VISIBLE else View.GONE
 
         /*
          * ④ DSD 警告：只在**音量控制开着**、而且**引擎里确实开着文件**时出现。
@@ -301,7 +385,7 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
          * ★ 关掉音量控制时它毫无意义（没有任何东西会失效），所以一起藏。
          * ★ 用 currentIsDsd() 现取 —— Track 上没有这个字段。
          */
-        tvVolWarn.visibility =
+        warn.visibility =
             if (on && PlayerSession.handle != 0L && PlayerSession.currentIsDsd())
                 View.VISIBLE else View.GONE
 
@@ -316,12 +400,12 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
          *    只变灰的话看不出"是锁着还是坏了"。
          * ★ 顺手把字也写上：这一行本来就窄，图标是主要信号，"已锁定"是补充。
          */
-        seekVolume.isEnabled = !locked
-        btnVolLock.setImageResource(
+        seek.isEnabled = !locked
+        lock.setImageResource(
             if (locked) R.drawable.ic_lock else R.drawable.ic_lock_open)
-        btnVolLock.imageTintList = android.content.res.ColorStateList.valueOf(
+        lock.imageTintList = android.content.res.ColorStateList.valueOf(
             Ui.c(this, if (locked) R.color.warn else R.color.text_secondary))
-        btnVolLock.contentDescription =
+        lock.contentDescription =
             getString(if (locked) R.string.volume_locked_prefix else R.string.volume_lock)
         /*
          * ★★ 两头跟着设置页定的上限/下限走。
@@ -331,13 +415,39 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
          * ★ 顺序必须是 min/max 先、progress 后：progress 会被**当前**范围夹一次，
          *   反过来的话先按旧范围夹了，位置就不是当前音量了。
          */
-        seekVolume.min = volStepOf(Settings.volumeFloorDb(this))
-        seekVolume.max = volStepOf(Settings.volumeCeilingDb(this))
+        val floorDb = Settings.volumeFloorDb(this)
+        val ceilDb = Settings.volumeCeilingDb(this)
+        seek.min = volStepOf(floorDb)
+        seek.max = volStepOf(ceilDb)
         val step = volStepOf(db)
-        if (seekVolume.progress != step) seekVolume.progress = step
-        tvVolume.text =
+        if (seek.progress != step) seek.progress = step
+        tv.text =
             if (locked) getString(R.string.volume_locked_prefix) + " · " + fmtVol(db)
             else fmtVol(db)
+
+        /*
+         * 竖屏才渲染上限/下限。横屏那两条是 GONE，连范围都不用算。
+         * 上下限的 min/max 和设置页完全一致，只是这里没有输入框。
+         */
+        if (showLimits) {
+            seekVolCeiling?.let {
+                it.min = volStepOf(
+                    (floorDb + Settings.MIN_SPAN_DB).coerceAtMost(Settings.MAX_VOLUME_DB))
+                it.max = volStepOf(Settings.MAX_VOLUME_DB)
+                it.progress = volStepOf(ceilDb)
+                it.isEnabled = !locked
+            }
+            tvVolCeiling?.text = fmtVol(ceilDb)
+
+            seekVolFloor?.let {
+                it.min = volStepOf(Settings.MIN_VOLUME_DB)
+                it.max = volStepOf(
+                    (ceilDb - Settings.MIN_SPAN_DB).coerceAtLeast(Settings.MIN_VOLUME_DB))
+                it.progress = volStepOf(floorDb)
+                it.isEnabled = !locked
+            }
+            tvVolFloor?.text = fmtVol(floorDb)
+        }
     }
 
     override fun onResume() {
@@ -681,6 +791,7 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
         val extra = listOfNotNull(
             PlayerSession.crossfeedLabel(),
             volumeBadgeLabel(),
+            loudnessBadgeLabel(),
         )
 
         tvBadge.visibility = View.VISIBLE
@@ -726,7 +837,27 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
     private fun volumeBadgeLabel(): String? {
         if (!Settings.volumeControl(this)) return null
         val db = Settings.volumeDb(this)
-        return if (db >= -0.05f) "音量控制" else "音量 %.0f dB".format(db)
+        // 0dB（开了但不修正）单独写「音量控制」；正负值都按实际 dB 显示
+        return if (db >= -0.05f && db <= 0.05f) {
+            "音量控制"
+        } else {
+            "音量 ${Settings.fmtVolumeDb(db)}"
+        }
+    }
+
+    /**
+     * 徽章上那截响度。
+     *
+     * ★ 响度与音量控制解耦之后，**必须单独列出来** —— 以前它依附在音量控制
+     *   下面，音量一开徽章就不再说 bit-perfect；现在音量关着、响度开着时，
+     *   不列这一项就会错误地显示「直通 · bit-perfect」。
+     * ★ DSD 不显示（响度对 DSD 无效）。
+     */
+    private fun loudnessBadgeLabel(): String? {
+        if (!Settings.loudnessEnabled(this)) return null
+        if (PlayerSession.currentIsDsd()) return null
+        val d = PlayerSession.loudnessDecision
+        return if (d == null) "响度分析中" else "响度 ${Settings.fmtGainDb(d.gainDb)}"
     }
 
     private fun renderDetail(t: Track) {
@@ -765,6 +896,30 @@ class NowPlayingActivity : AppCompatActivity(), PlayerSession.Listener {
                 append("队列      ").append(q.currentIndex + 1).append(" / ").append(q.size)
                 if (q.shuffle) append("   随机播放")
                 append("\n")
+            }
+
+            /*
+             * 响度平衡的实际结果。★ 显示的是**推给引擎的决策**，不是设置里的目标：
+             *   被真峰值夹住、退回单曲桥、还没测出来，这三种状态必须能分辨。
+             */
+            val d = PlayerSession.loudnessDecision
+            if (Settings.loudnessEnabled(this@NowPlayingActivity) &&
+                !PlayerSession.currentIsDsd()) {
+                if (d == null) {
+                    append("响度      分析中…\n")
+                } else {
+                    val src = if (d.source == LoudnessPolicy.Source.ALBUM) "专辑" else "单曲"
+                    append("响度      ")
+                        .append(Settings.fmtGainDb(d.gainDb))
+                        .append("  目标 ").append(Settings.fmtLufs(d.targetLufs))
+                        .append("  实测 ")
+                        .append("%.1f".format(d.measuredLufs).replace('-', '−'))
+                        .append(" LUFS  真峰值 ")
+                        .append("%.1f".format(d.truePeakDb).replace('-', '−'))
+                        .append(" dBTP  ").append(src)
+                    if (d.clamped) append("  峰值限制")
+                    append("\n")
+                }
             }
         }.trimEnd()
     }

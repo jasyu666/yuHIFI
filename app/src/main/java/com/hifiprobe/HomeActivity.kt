@@ -341,9 +341,17 @@ class HomeActivity : AppCompatActivity(), PlayerSession.Listener, DeviceGate.Lis
         renderDevice()
         DeviceGate.reopen(this) { ok, msg ->
             runOnUiThread {
+                /*
+                 * ★ 不能无条件写「bit-perfect」：直连只保证**输出通路**是独占的，
+                 *   如果交叉馈送/音量控制/响度平衡开着，样本仍然被处理过。
+                 *   用现在开着的处理项来判断，真正的结论以播放页徽章为准。
+                 */
+                val processed = Settings.crossfeedEnabled(this) ||
+                        Settings.volumeControl(this) || Settings.loudnessEnabled(this)
+                val suffix = if (processed) "（仍有其他处理，非 bit-perfect）" else ""
                 android.widget.Toast.makeText(
                     this,
-                    if (ok) "已切换至 USB 直连（bit-perfect）：$msg" else "切换失败：$msg",
+                    if (ok) "已切换至 USB 直连$suffix：$msg" else "切换失败：$msg",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
                 renderDevice()
@@ -371,7 +379,7 @@ class HomeActivity : AppCompatActivity(), PlayerSession.Listener, DeviceGate.Lis
         if (h != 0L && NativePlayer.nativeIsPlaying(h)) {
             AlertDialog.Builder(this)
                 .setTitle(getString(R.string.action_reconnect))
-                .setMessage("重新连接将先中断当前会话，播放会停止。是否继续？")
+                .setMessage("重新连接将先中断当前会话，播放将停止。是否继续？")
                 .setPositiveButton(getString(R.string.action_reconnect)) { _, _ -> doReconnect() }
                 .setNegativeButton("取消", null)
                 .show()

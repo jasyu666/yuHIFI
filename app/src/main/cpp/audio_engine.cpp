@@ -3,7 +3,9 @@
 #include <android/log.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <sstream>
 
@@ -157,13 +159,26 @@ bool AudioEngine::open(int fd, std::string* err) {
      *   ★ 只有源低于 24bit 时才需要提；源本来就是 24/32bit 的话没有余量，
      *     衰减会丢位（但那是数学上无法回避的，降音量就是降信息量）。
      */
-    if (volumeEnabled_.load() && bitResolution_ < 24) {
+    if ((volumeEnabled_.load() || loudnessEnabled_.load()) && bitResolution_ < 24) {
         subframeSize_ = 3; bitResolution_ = 24;
-        LOGI("音量控制已开：线格式由 %dbit 提到 24bit（给衰减留 8 位余量）", sourceBits_);
+        LOGI("软件处理已开（音量/响度）：线格式由 %dbit 提到 24bit（给衰减留 8 位余量）",
+             sourceBits_);
     }
     frameBytes_ = channels_ * subframeSize_;
     // ★ 凡是改 frameBytes_ 的地方都必须跟着同步给数据源 —— 淡入淡出按样本做
     ringSource_.setFormat(channels_, subframeSize_, outputRate_);
+
+    /*
+     * 起播时增益直接到位，不走斜坡。
+     *
+     * ★ PlayerSession 在 nativeOpenFile 之前已经把这一首的响度增益推下来了；
+     *   起播预灌（startDecoding 里那一段）也必须用它，否则每首歌开头
+     *   那一秒会用上一首的增益/1.0 —— 交叉馈送当年踩过同一个坑。
+     */
+    currentGain_ = effectiveGainTarget_.load(std::memory_order_relaxed);
+    rampLastTarget_ = currentGain_;
+    rampStep_ = 0.0f;
+    rampRemainingSamples_ = 0;
 
     LOGI("open: %s/%s %dHz %dch %dbit -> 输出 %dHz %s%s",
          formatName_, codecName_, sourceRate_, channels_, sourceBits_,
@@ -251,6 +266,18 @@ void AudioEngine::close() {
     seekBaseMs_.store(0);
     seekCount_.store(0);
     flushDone_ = false;
+
+    /*
+     * 斜坡状态跟着会话复位。
+     *
+     * ★ 这里**不重置 loudnessGain_**：PlayerSession 在 nativeOpenFile 之前
+     *   已经推了新曲目的增益，而 open() 开头会先调一次 close()；在这里
+     *   清零会把刚推下来的值冲掉，新曲目就从 1.0 开始。
+     */
+    currentGain_ = effectiveGainTarget_.load(std::memory_order_relaxed);
+    rampLastTarget_ = currentGain_;
+    rampStep_ = 0.0f;
+    rampRemainingSamples_ = 0;
 
     /*
      * ★★ `paused_` 是**会话级**状态，必须跟着一起清。
@@ -625,28 +652,97 @@ void AudioEngine::doSeekDsd(int64_t ms) {
 }
 
 /*
- * 软件音量：原地乘一个增益。
+ * 音量增益 × 响度增益。
  *
- * ★★ 增益 >= 1（0dB）时**直接返回，连循环都不进**。
- *    这样"开着音量控制但滑条在顶"和"没开音量控制"在数据上完全一致，
- *    用户不必担心"我开了这个功能会不会影响音质"。
+ * ★ 两个值各存各的（诊断报告要能分开显示「音量 −12dB · 响度 −3.2dB」），
+ *   但只把乘积交给热路径。
+ * ★ 用户音量夹在 [kMinGain, kMaxVolumeGain]（−80 ~ +15dB）；
+ *   响度单独夹 [kMinGain, +24dB]。
+ * ★★ 两个开关**独立**：某层关着时，它的增益按 1.0（0dB）参与合成。
+ *    所以音量关着、响度开着时，最终增益就是响度增益，一点音量衰减都没有。
+ */
+void AudioEngine::recomputeEffectiveGainLocked() {
+    const bool vOn = volumeEnabled_.load(std::memory_order_relaxed);
+    const bool lOn = loudnessEnabled_.load(std::memory_order_relaxed);
+
+    float v = vOn ? volumeGain_.load(std::memory_order_relaxed) : 1.0f;
+    float l = lOn ? loudnessGain_.load(std::memory_order_relaxed) : 1.0f;
+
+    if (!(v > 0.0f) || !std::isfinite(v)) v = 1.0f;
+    if (!(l > 0.0f) || !std::isfinite(l)) l = 1.0f;
+
+    v = std::clamp(v, kMinGain, kMaxVolumeGain);
+    l = std::clamp(l, kMinGain, kMaxLoudnessGain);
+    effectiveGainTarget_.store(v * l, std::memory_order_relaxed);
+}
+
+/*
+ * 软件音量 + 响度平衡：原地乘一个合成增益。
  *
- * ★ 用 float 乘。内部样本是左对齐 32 位，float 有 24 位尾数 ——
- *   对 16bit 源（有效位在 bit31..bit16）绰绰有余；乘完低位小数也被保留，
- *   随后 convertS32ToWire 右移 8 位输出 24bit 时正好用上。
+ * ★★ 两个增益**必须先乘成一个系数**，不能分两次处理。
+ *    现在**两层都可能 >1**（音量最高 +15dB，响度最高 +24dB）；
+ *    分两步时第一次乘法就可能把样本顶出 ±2³¹，
+ *    饱和之后再乘第二层也救不回来（不可逆削顶）。
  *
- * ★ 满量程是 ±2³¹，乘以 <=1 的增益不会溢出，不需要 clamp。
+ * ★★ 合成增益 == 1.0 时**直接返回，连循环都不进** ——
+ *    音量和响度都停在 0dB（或两层都关）时，处理链与没开时逐字节一致。
+ *
+ * ★ 250ms 线性斜坡：响度结果在播放中途到达、或用户拖动音量滑条时，
+ *   避免按块（约 93ms）跳变产生的台阶声。音量为 0dB 且响度刚好 0dB
+ *   时斜坡状态为 0，仍然走上面的整段跳过。
+ *
+ * ★ 真峰值钳制保证合成增益不会让输出超过约 −1dBTP；这里再加一道
+ *   饱和转换兜底，任何情况下都不让 float→int32 越界成为 UB。
  */
 void AudioEngine::applyGain(int32_t* buf, int frames) {
-    if (!volumeEnabled_.load(std::memory_order_relaxed)) return;
+    if (frames <= 0) return;
 
-    const float g = gain_.load(std::memory_order_relaxed);
-    if (g >= 0.999999f) return;          // 0dB：原样，一个样本都不碰
+    /*
+     * ★★ 这里**不再用 volumeEnabled_ 当总闸**。
+     *    响度平衡和音量控制已解耦：音量关着时响度仍要处理。
+     *    真正的"什么都不做"由合成增益 == 1.0 判断 —— 两层都关、
+     *    或两层都停在 0dB 时，照样一个样本都不碰。
+     */
+    const float target = effectiveGainTarget_.load(std::memory_order_relaxed);
+
+    // 目标 == 当前 == 1.0：一个样本都不碰
+    if (target >= 0.999999f && target <= 1.000001f &&
+        currentGain_ >= 0.999999f && currentGain_ <= 1.000001f &&
+        rampRemainingSamples_ <= 0) {
+        return;
+    }
+
+    /*
+     * 目标变了 → 重新起一段 250ms 的线性斜坡。
+     * 只由解码线程执行，不需要锁。
+     */
+    if (std::fabs(target - rampLastTarget_) > 1e-6f) {
+        rampLastTarget_ = target;
+        const int rampSamples = std::max(1, outputRate_ / 4);
+        rampRemainingSamples_ = rampSamples;
+        rampStep_ = (target - currentGain_) / static_cast<float>(rampSamples);
+    }
 
     const int total = frames * channels_;
+    float g = currentGain_;
+
     for (int i = 0; i < total; ++i) {
-        buf[i] = static_cast<int32_t>(static_cast<float>(buf[i]) * g);
+        float v = static_cast<float>(buf[i]) * g;
+
+        /*
+         * 饱和转换。float 无法精确表示 2³¹−1，用 2147483520（2³¹−128）
+         * 作为正向边界；负向 −2³¹ 是精确可表示的。
+         */
+        if (v > 2147483520.0f) v = 2147483520.0f;
+        else if (v < -2147483648.0f) v = -2147483648.0f;
+        buf[i] = static_cast<int32_t>(v);
+
+        if (rampRemainingSamples_ > 0) {
+            g += rampStep_;
+            if (--rampRemainingSamples_ == 0) g = target;
+        }
     }
+    currentGain_ = g;
 }
 
 bool AudioEngine::writeToRing(const uint8_t* data, size_t bytes) {

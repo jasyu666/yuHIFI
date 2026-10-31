@@ -21,11 +21,15 @@ import java.util.concurrent.Executors
 /**
  * 通用曲目列表页 —— 三种数据来源共用一套界面：
  *
- * | source    | 内容         | 字母索引 | 可拖动排序 | 右上角   |
- * |-----------|--------------|----------|------------|----------|
- * | all       | 整个库       | 有       | 否         | —        |
- * | album     | 一张专辑     | 无       | 否         | 播放全部 |
- * | playlist  | 一个歌单     | 无       | **是**     | 播放全部 + ⋮ |
+ * | source    | 内容         | 字母索引 | 定位按钮 | 可拖动排序 | 右上角   |
+ * |-----------|--------------|----------|----------|------------|----------|
+ * | all       | 整个库       | 有       | 有       | 否         | —        |
+ * | album     | 一张专辑     | 无       | **无**   | 否         | 播放全部 |
+ * | playlist  | 一个歌单     | 无       | 有       | **是**     | 播放全部 + ⋮ |
+ *
+ * ★ 「定位按钮」（右下角那个圆按钮，见 [LocateCurrent]）**专辑来源没有** ——
+ *   专辑是一张一张听的，点进去那页的曲目一眼看得完，按钮纯占地方。
+ *   用户明确要的就是这个口径，别顺手给所有来源都开上。
  *
  * ★ 三处共用是为了**样式一致**：封面大小、徽章、空态文案、长按菜单
  *   只在这一份代码里定义。拆成三个页面的话，改一处忘两处是必然的。
@@ -68,6 +72,7 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
     private lateinit var btnTlAction: Button
     private lateinit var btnTlMore: ImageButton
     private lateinit var miniBar: MiniBar
+    private lateinit var locate: LocateCurrent
 
     private val adapter = TrackAdapter()
     private val io = Executors.newSingleThreadExecutor { r -> Thread(r, "tracklist-io") }
@@ -127,6 +132,16 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
         rvTracks.layoutManager = layoutManager
         rvTracks.adapter = adapter
         if (editable) attachDragHelper()
+
+        // 目标行由**内容**认（uri），不是下标 —— 这个列表每次 load 都会重建，
+        // 下标会变，uri 不会
+        locate = LocateCurrent(
+            this, findViewById(R.id.btnLocate), rvTracks,
+            target = { adapter.positionOf(PlayerSession.current?.uri) }
+        )
+        // 专辑来源直接收起来。放在这儿而不是只放在 renderEmpty 里：
+        // 那边要等后台 load 回来才跑，中间那几十毫秒按钮会闪一下
+        locate.suppressed = source == SOURCE_ALBUM
 
         val btnBack = findViewById<ImageButton>(R.id.btnTlBack)
         // 多选时返回键是"退出多选"，不是"退出页面" —— 这是全 App 统一的约定，
@@ -262,6 +277,18 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
         // 而且选到一半跳走会让用户不知道自己选的是哪些
         indexBar.visibility =
             if (empty || source != SOURCE_ALL || sel.active) View.GONE else View.VISIBLE
+
+        /*
+         * 定位按钮跟着这条一起收放，理由也共用：
+         *   · 空列表 —— 没有"当前播放的那一行"可跳
+         *   · 多选   —— 和选中集合无关的动作先让位，见 LocateCurrent.suppressed
+         *   · 专辑   —— 用户明确不要这一页有它
+         *
+         * 右边距要跟着滑动块走：两者都在右边缘，不让开就压在一起。
+         */
+        locate.suppressed = empty || sel.active || source == SOURCE_ALBUM
+        locate.avoidIndexBar(indexBar.visibility == View.VISIBLE)
+
         tvTlEmpty.text = when (source) {
             SOURCE_ALL -> getString(R.string.empty_all_songs)
             SOURCE_ALBUM -> "这张专辑里没有可播放的曲目"
@@ -273,6 +300,7 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
         super.onResume()
         PlayerSession.addListener(this)
         miniBar.render()
+        locate.render()
         // 回到本页时重拉一次：可能在别的页面里把歌加进来了，或改了歌单名。
         // 内容没变的话 adapter.submit 会直接跳过，不会把滚动位置弹回顶部
         load()
@@ -291,6 +319,8 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
     override fun onSessionLog(text: String) = Unit
     override fun onSessionStateChanged() {
         miniBar.render()
+        // 只是"有没有在播"变了就显隐，不碰列表 —— 见 LocateCurrent 文件头
+        locate.render()
         /*
          * 只在高亮真的换行时才重画列表。
          *
@@ -481,7 +511,7 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
             add(SelectionBar.Action("从歌单移除") {
                 val uris = sel.snapshot()
                 io.execute {
-                    for (u in uris) Playlists.removeUri(playlistId.orEmpty(), u)
+                    Playlists.removeUrisFrom(playlistId.orEmpty(), uris)
                     runOnUiThread { exitSelect(); load() }
                 }
             })
@@ -517,7 +547,7 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
                     2 -> addToPlaylist(listOf(t))
                     3 -> {
                         io.execute {
-                            Playlists.removeUri(playlistId.orEmpty(), t.uri)
+                            Playlists.removeUrisFrom(playlistId.orEmpty(), listOf(t.uri))
                             runOnUiThread {
                                 toast("已移除")
                                 load()
@@ -624,6 +654,17 @@ class TrackListActivity : AppCompatActivity(), PlayerSession.Listener {
          * [submit] 的内容指纹比不出来 —— 必须显式重画一遍。
          */
         fun refreshSelection() = notifyDataSetChanged()
+
+        /**
+         * 某一首曲目在**当前 rows 里**的行号，-1 = 没有。
+         *
+         * ★ 按 uri 找，不按下标 —— rows 里还混着字母分组头（所有歌曲页），
+         *   "第几首歌"和"第几行"本来就不是一回事。
+         */
+        fun positionOf(uri: String?): Int {
+            if (uri == null) return -1
+            return rows.indexOfFirst { it is Row.Song && it.track.uri == uri }
+        }
 
         fun refreshHighlight() {
             val now = PlayerSession.current?.uri?.takeIf { PlayerSession.isActive }

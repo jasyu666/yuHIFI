@@ -17,6 +17,13 @@ class App : Application() {
         super.onCreate()
         AppCompatDelegate.setDefaultNightMode(Settings.themeMode(this))
 
+        // 性能埋点：debug 或显式打开调试开关时启动独立 writer 线程。
+        // 必须在任何播放/分析之前初始化；正式版默认关闭。
+        PerfTrace.init(this)
+        PerfTrace.mark("app.start",
+            "version" to runCatching { packageManager.getPackageInfo(packageName, 0).versionName }
+                .getOrNull().orEmpty())
+
         // 调试桥要跟踪"当前是哪个 Activity"，必须在任何界面创建之前注册
         DebugBridge.install(this)
 
@@ -27,6 +34,27 @@ class App : Application() {
          *   晚一步的话第一批封面会走"从母版解"那条慢路。
          */
         CoverLoader.init(this)
+
+        /*
+         * 响度测量的侧挂缓存。初始化本身不读库、不扫描，只准备文件路径；
+         * 真正的后台分析由 PlayerSession.onLibraryReady() 在库扫完之后接上，
+         * 或者由设置页打开开关时启动。
+         */
+        // 响度后台分析需要 Library 的目录/索引；在 Application 里先初始化。
+        // 各 Activity 仍会再调一次，init 是幂等的。
+        Library.init(this)
+        LoudnessStore.init(this)
+
+        /*
+         * 响度后台分析：**进程一启动就接上**（如果开关是开的）。
+         *
+         * ★ 以前只在 HomeActivity.onResume / 库扫描完成时启动。如果系统把
+         *   App 恢复到设置页/正在播放页，没有经过那条路，闲置时就完全不分析
+         *   （用户 2026-10-17 报的问题）。
+         * ★ 此刻 Library 可能还没扫描（内存里是空的）；分析器会安全地空排队，
+         *   并在后台加载一次库，再由空闲巡检补排。
+         */
+        if (Settings.loudnessEnabled(this)) LoudnessAnalyzer.start(this)
 
         /*
          * 记下未捕获异常。

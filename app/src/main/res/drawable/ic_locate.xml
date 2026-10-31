@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  准星 —— 「定位到正在播放」那个圆按钮的图标。
+
+  用描边而不是填充：它表达的是"把视线收到这一点上"，是个动作，
+  不是一件东西。画成实心圆点会和左边那排功能图标抢视觉重量，
+  也会被误认成"当前状态"的指示器（它旁边的行已经用主色高亮在说这件事了）。
+
+  和 @drawable/ic_search 是同一套：24dp 网格、2dp 线宽、圆头端点。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 圆心 (12,12)、半径 7.5 的整圆：两段大半圆拼起来 -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,4.5 A7.5,7.5 0 1 0 12,19.5 A7.5,7.5 0 1 0 12,4.5"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="2" />
+    <!-- 四根刻度：从 r=7.5 伸到 r=10.5 -->
+    <path
+        android:pathData="M12,1.5 L12,4.5 M12,19.5 L12,22.5 M1.5,12 L4.5,12 M19.5,12 L22.5,12"
+        android:strokeColor="@android:color/white"
+        android:strokeLineCap="round"
+        android:strokeWidth="2" />
+</vector>

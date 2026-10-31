@@ -45,11 +45,11 @@ android {
          *
          *     所以版本名可以稳定不变，**但 versionCode 每出一次包必须 +1**。
          *
-         *   ★ versionCode **两条线共用同一个序列**：`main` 现在是 98，
-         *     所以这一版是 99。两边的 versionCode 绝不能撞车 ——
+         *   ★ versionCode **两条线共用同一个序列**：`main` 现在是 130，
+         *     所以这一版是 131。两边的 versionCode 绝不能撞车 ——
          *     报告页脚只靠它分辨是哪个构建。
          */
-        versionCode = 118
+        versionCode = 131
         versionName = "0.1-release"
 
         if (!skipNative) {

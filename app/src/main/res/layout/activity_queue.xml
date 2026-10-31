@@ -18,7 +18,7 @@
 
         <ImageButton
             android:id="@+id/btnQueueBack"
-            style="@style/Btn.Icon"
+            style="@style/Btn.Icon.Back"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:contentDescription="@string/action_back"
@@ -95,6 +95,7 @@
         android:layout_marginBottom="16dp"
         android:layout_weight="1">
 
+        <!-- paddingBottom 68dp 是给下面那个定位按钮留的，理由见 activity_track_list.xml -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvQueue"
             android:layout_width="match_parent"
@@ -102,8 +103,24 @@
             android:background="@drawable/bg_card_flat"
             android:clipToPadding="false"
             android:paddingTop="4dp"
-            android:paddingBottom="4dp"
+            android:paddingBottom="68dp"
             android:scrollbars="none" />
+
+        <!-- 「定位到正在播放」。队列长了以后，正在播的那首经常不在屏幕上 -->
+        <ImageButton
+            android:id="@+id/btnLocate"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_locate"
+            android:contentDescription="@string/action_locate_current"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_locate"
+            android:tint="@color/on_brand"
+            android:visibility="gone" />
     </FrameLayout>
 
     <!-- 多选时的操作栏。队列页本来就显示着队列，没有迷你播放条要让位 -->

@@ -55,6 +55,10 @@ class SettingsActivity : AppCompatActivity() {
          *   看着像数据丢了。
          */
         PlayerSession.init(applicationContext)
+        // 响度分析要读 Library.all()/albums()；从设置页冷启动时也要先初始化
+        Library.init(this)
+        // 进程级启动之外，再从设置页补一次 —— 开关开着时闲置分析不能停
+        if (Settings.loudnessEnabled(this)) LoudnessAnalyzer.start(this)
 
         container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -103,6 +107,33 @@ class SettingsActivity : AppCompatActivity() {
      */
     private var editingProgrammatically = false
 
+    /** 响度分析进度那行的 trailing。页面重建时置空，进度刷新任务在 onResume/onPause 起停 */
+    private var loudnessProgress: TextView? = null
+
+    /** 响度监控明细：模式 / 当前任务 / 队列 / 耗时 */
+    private var loudnessDetail: TextView? = null
+
+    /** 进度行 + 它上面的分隔线。开关响度时只切这一块的显隐，**不重画整页** */
+    private var loudnessProgressBox: View? = null
+    private val progressHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val progressTick = object : Runnable {
+        override fun run() {
+            updateLoudnessProgress()
+            progressHandler.postDelayed(this, 1500)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        progressHandler.removeCallbacks(progressTick)
+        progressHandler.post(progressTick)
+    }
+
+    override fun onPause() {
+        progressHandler.removeCallbacks(progressTick)
+        super.onPause()
+    }
+
     private fun build() {
         container.removeAllViews()
         /*
@@ -114,6 +145,9 @@ class SettingsActivity : AppCompatActivity() {
         ceilSeek = null; ceilEditor = null
         floorSeek = null; floorEditor = null
         volLockNote = null
+        loudnessProgress = null
+        loudnessDetail = null
+        loudnessProgressBox = null
 
         header()
 
@@ -197,17 +231,27 @@ class SettingsActivity : AppCompatActivity() {
         section("音量控制")
         card { c ->
             check(c, "音量控制",
-                "USB 直连绕过了系统混音，系统音量条对其不起作用；而许多 USB 解码器" +
-                        "（Dawn Pro、TANCHJIM BUNNY DSP 均是）仅实现静音、没有硬件音量 ——" +
-                        "这类设备在独占模式下无法调节响度。开启后音量滑条将出现在正在播放页。\n" +
-                        "★ 开启后不再适用 bit-perfect：该功能直接对样本做乘法运算。\n" +
-                        "★ 但输出位深会提到 24bit —— 16bit 音源在 −48dB 以内不丢有效位。\n" +
-                        "★ 音量停在 0dB 时一个样本都不碰；对 DSD 无效。",
+                "为没有可用硬件音量的 USB 直连设备提供软件音量。USB 直连绕过了" +
+                        "系统混音，系统音量条对其不起作用；部分 USB 解码器的 Feature Unit " +
+                        "音量未实现，此类设备在独占模式下只能依靠本层。\n" +
+                        "★ 本功能直接对样本做乘法运算，开启后不再保持 bit-perfect。\n" +
+                        "★ 输出位深将提升至 24bit —— 16bit 音源在 −48dB 以内不丢失有效位。\n" +
+                        "★ 系统音频模式下系统音量仍然有效，此处的滑条为额外一层。\n" +
+                        "★ 上限最高可设为 +15dB；正增益为数字放大，没有额外位数，过高会削顶。\n" +
+                        "  默认上限仍为 0dB；如需正向增益，请先在「上限」中调整。\n" +
+                        "★ 本层增益为 0dB 时不改动样本（响度平衡为独立一层）；对 DSD 无效。",
                 Settings.volumeControl(this)) { v ->
                 Settings.setVolumeControl(this, v)
+                /*
+                 * 只推音量这一层。引擎内部会拿它和当前响度增益重新合成 ——
+                 * 响度是独立开关，不需要在这里启停分析器。
+                 */
                 PlayerSession.refreshSoftwareVolume()
                 // 位深是开文件时定的，切换要等下一首
-                toast(if (v) "已开启 · 输出位深将在下次打开文件时切换" else "已关闭 · 恢复 bit-perfect")
+                toast(
+                    if (v) "已开启 · 输出位深将在下次打开文件时切换"
+                    else "已关闭 · 音量层已停止"
+                )
                 build()          // 滑条的可用状态跟着开关走，重画一下
             }
             divider(c)
@@ -231,6 +275,73 @@ class SettingsActivity : AppCompatActivity() {
             }
             lockNote(c)
             dsdWarn(c)
+        }
+
+        section("响度平衡")
+        card { c ->
+            check(c, "响度平衡",
+                "使各曲目响度接近，而非仅峰值接近。测量采用 ITU-R BS.1770 " +
+                        "积分响度与真峰值，播放时施加固定的逐曲增益。\n" +
+                        "★ 本功能独立工作，无需开启「音量控制」。两者可单独启用，" +
+                        "也可叠加：响度先确定基准，音量再做最终修正。\n" +
+                        "★ 开启后不再保持 bit-perfect：本功能会对样本做乘法运算。\n" +
+                        "★ 增益受 −1 dBTP 真峰值上限约束：安静但峰值较高的曲目会略轻，优先避免削顶。\n" +
+                        "★ 对 DSD 无效（DSD 走原生位流，不经过 PCM 域）。",
+                Settings.loudnessEnabled(this)) { v ->
+                Settings.setLoudnessEnabled(this, v)
+                if (v) {
+                    LoudnessAnalyzer.start(this)
+                } else {
+                    LoudnessAnalyzer.stop()
+                }
+                // 分析器启动/停止都已改成异步；这里只切进度行显隐，不重画整页
+                loudnessProgressBox?.visibility = if (v) View.VISIBLE else View.GONE
+                updateLoudnessProgress()
+                PlayerSession.refreshLoudness()
+            }
+
+            divider(c)
+            row(c, "目标响度",
+                "所有曲目以此为目标。默认 −14 LUFS（与 Spotify / YouTube 一致）。" +
+                        "修改目标**无需重新测量**：缓存保存绝对 LUFS 与真峰值，仅重新计算增益。\n" +
+                        "选项：−14 流媒体 / −16 Apple Music / −18 ReplayGain 2.0 / 自定义（−24 ~ −9）",
+                Settings.fmtLufs(Settings.loudnessTargetLufs(this))) {
+                pickLoudnessTarget()
+            }
+
+            divider(c)
+            row(c, "模式",
+                "自动：曲目数低于下方上限时按专辑统一增益（保留专辑内部动态）；" +
+                        "超过上限的集合按单曲处理。\n" +
+                        "全部单曲：每首单独归一化，专辑内部动态亦被拉平。",
+                loudnessModeName(Settings.loudnessMode(this))) {
+                pickLoudnessMode()
+            }
+
+            if (Settings.loudnessMode(this) == Settings.LOUDNESS_MODE_AUTO) {
+                divider(c)
+                row(c, "专辑曲目上限",
+                    "自动模式下，曲目数低于此值才按一张专辑处理（默认 50）。\n" +
+                            "实测本库在 74 首与 1325 首之间存在明显分界；上限最大 500，更大的集合按歌单处理。",
+                    "${Settings.loudnessAlbumMaxTracks(this)} 首") {
+                    editAlbumMaxTracks()
+                }
+            }
+
+            /*
+             * 进度行**始终建出来**，只切显隐 ——
+             * 这样拨响度开关时不用 build() 整页，手感是即时的。
+             * ★ 它和音量控制无关，音量关着也照样显示分析进度。
+             */
+            val box = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            c.addView(box)
+            divider(box)
+            loudnessProgressRow(box)
+            box.visibility =
+                if (Settings.loudnessEnabled(this)) View.VISIBLE else View.GONE
+            loudnessProgressBox = box
         }
 
         section("后台")
@@ -294,7 +405,7 @@ class SettingsActivity : AppCompatActivity() {
              */
             check(c, "禁用 44.1kHz",
                 "备用开关，正常使用请勿改动。\n" +
-                        "默认关闭：8 个标准速率全部直通，44.1k 曲库不再重采样。\n" +
+                        "默认关闭：8 个标准速率全部直通，44.1k 曲目不再重采样。\n" +
                         "开启后仅走 48k 家族 —— 供「某台设备的 44.1k 确实有问题」时现场回退。",
                 !Settings.allowAllRates(this)) { v ->
                 Settings.setAllowAllRates(this, !v)
@@ -513,6 +624,212 @@ class SettingsActivity : AppCompatActivity() {
         else -> "样式 $i"
     }
 
+    // ------------------------------------------------------------------
+    //  响度平衡
+    // ------------------------------------------------------------------
+
+    private fun loudnessModeName(mode: Int): String = when (mode) {
+        Settings.LOUDNESS_MODE_TRACK -> "全部单曲"
+        else -> "自动"
+    }
+
+    /** 后台分析进度。单独一行，因为它的 trailing 要跟着分析进度刷新 */
+    private fun loudnessProgressRow(parent: LinearLayout) {
+        val v = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(2), dp(14), dp(2), dp(14))
+        }
+        v.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(this@SettingsActivity).apply {
+                text = "后台分析"
+                setTextColor(Ui.c(this@SettingsActivity, R.color.text_primary))
+                textSize = 15f
+            })
+            addView(TextView(this@SettingsActivity).apply {
+                text = "开启后从全库未测量曲目开始补测；开始播放时当前曲目、当前专辑及" +
+                        "后续曲目会自动优先。进程终止后下次启动继续。"
+                setTextColor(Ui.c(this@SettingsActivity, R.color.text_tertiary))
+                textSize = 11f
+                setLineSpacing(dp(3).toFloat(), 1f)
+                setPadding(0, dp(3), 0, 0)
+            })
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        val trailing = TextView(this).apply {
+            textSize = 13f
+            setTextColor(Ui.c(this@SettingsActivity, R.color.brand))
+            setPadding(dp(10), 0, dp(2), 0)
+        }
+        v.addView(trailing)
+        parent.addView(v)
+
+        val detail = TextView(this).apply {
+            textSize = 11f
+            setTextColor(Ui.c(this@SettingsActivity, R.color.text_tertiary))
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setPadding(dp(2), 0, dp(2), dp(10))
+            text = "监控明细加载中…"
+        }
+        parent.addView(detail)
+
+        loudnessProgress = trailing
+        loudnessDetail = detail
+        updateLoudnessProgress()
+    }
+
+    private fun updateLoudnessProgress() {
+        val tv = loudnessProgress ?: return
+        val total = Library.all().count { !LoudnessPolicy.isDsd(it) }
+        if (total <= 0) {
+            tv.text = "等待音乐库"
+            loudnessDetail?.text = "音乐库为空，暂无可分析曲目。"
+            return
+        }
+        val done = LoudnessStore.measuredCount().coerceAtMost(total)
+        tv.text = when {
+            done >= total -> "已完成 $done / $total"
+            LoudnessAnalyzer.isRunning() -> "$done / $total"
+            else -> "已暂停 $done / $total"
+        }
+
+        val s = LoudnessAnalyzer.snapshot()
+        fun ms(v: Long): String =
+            if (v >= 1000) "%.1f s".format(v / 1000.0) else "$v ms"
+        loudnessDetail?.text = buildString {
+            append("模式：${s.modeLabel} · 目标 ${Settings.fmtLufs(s.targetLufs)}")
+            val c = s.current
+            if (c == null) {
+                append("\n当前：空闲")
+            } else {
+                append("\n当前：${c.priorityLabel} · ${c.kind} · ${c.label}")
+                append("  ${c.done}/${c.tracks} 首 · 已用 ${ms(c.runningMs)}")
+            }
+            append("\n队列：P0 ${s.p0} / P1 ${s.p1} / P2 ${s.p2} / P3 ${s.p3}")
+            append("\n单曲：最近 ${ms(s.lastTrackMs)} · 平均 ${ms(s.avgTrackMs)} · 最慢 ${ms(s.maxTrackMs)}")
+            append("\n专辑：最近 ${ms(s.lastAlbumMs)} · 平均 ${ms(s.avgAlbumMs)} · 最慢 ${ms(s.maxAlbumMs)}")
+            append("\n缓存 ${s.cacheTracks} 首 / ${s.cacheAlbums} 张 · " +
+                    "完成 ${s.completedTracks} / 失败 ${s.failedTracks} / 抢占 ${s.preempted}")
+            s.lastError?.let { append("\n最近错误：$it") }
+        }
+    }
+
+    private fun pickLoudnessTarget() {
+        val presets = listOf(-14f, -16f, -18f)
+        val labels = arrayOf(
+            "−14 LUFS · 流媒体（Spotify / YouTube，默认）",
+            "−16 LUFS · Apple Music",
+            "−18 LUFS · ReplayGain 2.0",
+            "自定义…"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("目标响度")
+            .setItems(labels) { _, which ->
+                if (which < presets.size) {
+                    Settings.setLoudnessTargetLufs(this, presets[which])
+                    applyLoudnessSettingChanged(restart = false)
+                } else {
+                    editLoudnessTarget()
+                }
+            }
+            .show()
+    }
+
+    private fun editLoudnessTarget() {
+        val input = EditText(this).apply {
+            // 框里只放数字，单位在标题上 —— 和音量输入框同一套约定
+            setText("%.1f".format(Settings.loudnessTargetLufs(this@SettingsActivity)))
+            inputType = InputType.TYPE_CLASS_NUMBER or
+                    InputType.TYPE_NUMBER_FLAG_DECIMAL or
+                    InputType.TYPE_NUMBER_FLAG_SIGNED
+            setSelectAllOnFocus(true)
+            hint = "例如 -14.5"
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("目标响度（LUFS）")
+            .setMessage(
+                "允许 −24.0 ~ −9.0 LUFS。数值越高整体响度越高，但更多曲目会受 " +
+                        "−1 dBTP 真峰值上限约束而无法达到目标。\n" +
+                        "修改目标仅重新计算增益，不会重新测量。"
+            )
+            .setView(input)
+            .setPositiveButton("确定") { _, _ ->
+                // U+2212（数学减号）也接受 —— 中文输入法/复制粘贴常见
+                val raw = input.text.toString().trim().replace('−', '-')
+                val v = raw.toFloatOrNull()
+                if (v == null) {
+                    toast("请输入数字")
+                } else {
+                    Settings.setLoudnessTargetLufs(this, v)
+                    applyLoudnessSettingChanged(restart = false)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun pickLoudnessMode() {
+        val modes = intArrayOf(
+            Settings.LOUDNESS_MODE_AUTO,
+            Settings.LOUDNESS_MODE_TRACK
+        )
+        AlertDialog.Builder(this)
+            .setTitle("响度模式")
+            .setItems(
+                arrayOf(
+                    "自动（按专辑分组，默认）",
+                    "全部单曲（每首各自归一化）"
+                )
+            ) { _, which ->
+                Settings.setLoudnessMode(this, modes[which])
+                // 模式变了，队列的组织方式跟着变 —— 已测结果保留，只重排任务
+                applyLoudnessSettingChanged(restart = true)
+            }
+            .show()
+    }
+
+    private fun editAlbumMaxTracks() {
+        val input = EditText(this).apply {
+            setText(Settings.loudnessAlbumMaxTracks(this@SettingsActivity).toString())
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setSelectAllOnFocus(true)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("专辑曲目上限（首）")
+            .setMessage(
+                "自动模式下，曲目数低于此值才按一张专辑统一增益。\n" +
+                        "范围 ${Settings.MIN_ALBUM_MAX_TRACKS} ~ ${Settings.MAX_ALBUM_MAX_TRACKS}，" +
+                        "默认 ${Settings.DEFAULT_ALBUM_MAX_TRACKS}。\n" +
+                        "超过上限的集合多为歌单转存，按专辑测量既慢也无实际意义。"
+            )
+            .setView(input)
+            .setPositiveButton("确定") { _, _ ->
+                val n = input.text.toString().trim().toIntOrNull()
+                if (n == null) {
+                    toast("请输入整数")
+                } else {
+                    Settings.setLoudnessAlbumMaxTracks(this, n)
+                    applyLoudnessSettingChanged(restart = true)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    /**
+     * 目标值只重算增益（不需要重测）；模式/上限变了才重排分析任务。
+     */
+    private fun applyLoudnessSettingChanged(restart: Boolean) {
+        if (restart) LoudnessAnalyzer.restart(this)
+        PlayerSession.refreshLoudness()
+        updateLoudnessProgress()
+        build()
+    }
+
     private fun pickUrb() {
         val options = listOf(8, 16, 32, 64, 128)
         val labels = options.map {
@@ -609,7 +926,8 @@ class SettingsActivity : AppCompatActivity() {
         if (!Settings.volumeLocked(this)) {
             hint(
                 if (on) "滑条与右侧输入框均可修改，效果相同。两端由下方的上限、下限决定 ——" +
-                        "拖到底至多到达上限，不会到 0dB。−48dB 以内不丢有效位，再低开始丢位，但该响度已无法听辨。"
+                        "推至最右端至多到达上限，不会到 0dB。上限默认 0dB，可手动提高至 +15dB；" +
+                        "正增益为数字放大，可能削顶。−48dB 以内不丢失有效位，再低开始丢位，但该响度已无法听辨。"
                 else "需先开启上方的开关。"
             )
         }
@@ -620,7 +938,7 @@ class SettingsActivity : AppCompatActivity() {
      *
      * ★★ 它们定义的只是**音量滑条的两头** —— 用户不用理解"夹取"这种词，
      *    看到的就是"推到头最多这么响"。
-     * ★ 三根滑条共用同一把尺子（0..VOLUME_STEPS 就是 −80..0dB），
+     * ★ 三根滑条共用同一把尺子（0..VOLUME_STEPS 就是 −80..+15dB），
      *   只把各自的 min/max 收进允许范围；**尺子本身不动**
      *   （见 [Settings.VOLUME_STEPS] 那条注释）。
      * ★ 上限的左边、下限的右边都要给对面留出 [Settings.MIN_SPAN_DB] ——
@@ -971,7 +1289,7 @@ class SettingsActivity : AppCompatActivity() {
             addView(android.widget.ImageButton(this@SettingsActivity).apply {
                 setImageResource(R.drawable.ic_back)
                 imageTintList = android.content.res.ColorStateList.valueOf(
-                    Ui.c(this@SettingsActivity, R.color.text_primary))
+                    Ui.c(this@SettingsActivity, R.color.back_arrow))
                 background = null
                 contentDescription = "返回"
                 setPadding(0, 0, 0, 0)

@@ -117,11 +117,29 @@
     <string name="cd_enter">进入</string>
     <string name="hint_all_songs">右侧字母索引可快速跳转</string>
 
+    <!--
+      定位到正在播放。
+
+      ★ 文案说的是**按下去会发生什么**，不是"现在在播哪首" ——
+        它是个动作按钮。写成「正在播放」的话，用户会以为点一下要开始播。
+      ★ 「一次性」这件事不写在按钮上（写不下，也没人会读）：
+        跳过去之后播下一首时列表不动，这是行为本身的定义，见 LocateCurrent 的说明。
+    -->
+    <string name="action_locate_current">定位到正在播放</string>
+    <!-- 列表里压根找不到正在播的那首时的提示 -->
+    <string name="locate_not_in_list">正在播放的曲目不在当前列表中</string>
+    <string name="locate_none">当前无正在播放的曲目</string>
+
+    <!-- 专辑页的搜索框。按专辑名和歌手名过滤，不走字母索引 -->
+    <string name="hint_search_album">搜索专辑名 / 歌手</string>
+    <string name="action_clear_search">清空搜索</string>
+    <string name="empty_album_search">未找到匹配「%1$s」的专辑</string>
+
     <!-- 空态与提示 -->
     <string name="empty_library">音乐库为空。\n\n可通过右上角「导入」从本机选择文件，\n或通过「无线传输」在电脑浏览器中上传。</string>
     <string name="hint_no_device">尚未连接 USB 解码器 —— 连接后会自动接管</string>
     <string name="hint_not_playing">未在播放</string>
-    <string name="empty_all_songs">曲库为空。\n\n请先在「音乐库」中导入曲目。</string>
+    <string name="empty_all_songs">音乐库为空。\n\n请先在「音乐库」中导入曲目。</string>
     <string name="empty_albums">暂无专辑。\n\n曲目按专辑标签分组显示。</string>
     <string name="empty_playlists">暂无歌单。\n\n新建歌单以收藏曲目。</string>
 
