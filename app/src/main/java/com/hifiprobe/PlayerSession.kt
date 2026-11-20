@@ -1,7 +1,11 @@
 package com.hifiprobe
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.ParcelFileDescriptor
 import android.os.Looper
@@ -338,6 +342,32 @@ object PlayerSession {
      */
     private val disconnectSeq = java.util.concurrent.atomic.AtomicLong(0)
 
+    // ------------------------------------------------------------------
+    //  音频焦点 —— 只用于系统音频模式
+    // ------------------------------------------------------------------
+
+    private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
+
+    @Volatile
+    private var hasAudioFocus = false
+
+    /** 因失去音频焦点而暂停，焦点回来后自动继续。用户手动暂停不会置位。 */
+    @Volatile
+    private var pausedByFocusLoss = false
+
+    /** 焦点恢复时流已死：重建完成后自动续播（重建期间保持暂停）。 */
+    @Volatile
+    private var resumeAfterFix = false
+
+    /** 看门狗上次触发时刻，防止重建失败时每 200ms 刷一次。 */
+    private var lastWatchdogMs = 0L
+
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { change ->
+        worker.execute { handleAudioFocusChange(change) }
+    }
+
+
     val isActive: Boolean get() = state == State.PLAYING || state == State.PAUSED
 
     /**
@@ -450,6 +480,7 @@ object PlayerSession {
 
     fun init(ctx: Context) {
         appContext = ctx.applicationContext
+        audioManager = ctx.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         QueueStore.init(appContext!!)
         // ★ 只在第一次读进来。init 会被多个 Activity 反复调，
         //   每次都重新读的话会把内存里已经攒的那段冲掉（数字变小）。
@@ -678,6 +709,94 @@ object PlayerSession {
         }
     }
 
+    // ------------------------------------------------------------------
+    //  音频焦点（系统音频）
+    // ------------------------------------------------------------------
+
+    private fun isSystemAudioSession(): Boolean {
+        val ctx = appContext ?: return false
+        return !Settings.usbDirect(ctx) && handle != 0L
+    }
+
+    private fun requestSystemAudioFocus(): Boolean {
+        if (!isSystemAudioSession()) return true
+        val am = audioManager ?: return false
+        val req = audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            .setOnAudioFocusChangeListener(audioFocusListener, mainHandler)
+            .build()
+            .also { audioFocusRequest = it }
+        val result = am.requestAudioFocus(req)
+        hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        if (!hasAudioFocus) postLog("⚠ 未能获得音频焦点（result=$result）")
+        return hasAudioFocus
+    }
+
+    private fun abandonSystemAudioFocus() {
+        val am = audioManager ?: return
+        val req = audioFocusRequest ?: return
+        am.abandonAudioFocusRequest(req)
+        hasAudioFocus = false
+        pausedByFocusLoss = false
+    }
+
+    private fun handleAudioFocusChange(change: Int) {
+        if (!isSystemAudioSession()) return
+        // 任何焦点变化都先尝试取走“流已断开”标志，避免它被清掉后心跳再也看不到
+        val h0 = handle
+        if (h0 != 0L && NativePlayer.nativeSystemOutputDead(h0)) {
+            disconnectSeq.incrementAndGet()
+        }
+        when (change) {
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                if (state == State.PLAYING) {
+                    pausedByFocusLoss = true
+                    val h = handle
+                    if (h != 0L) NativePlayer.nativeSetPaused(h, true)
+                    setState(State.PAUSED)
+                    postLog("⚠ 音频焦点被占用（来电/其他应用）—— 已暂停")
+                }
+            }
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                if (state == State.PLAYING) {
+                    pausedByFocusLoss = false
+                    val h = handle
+                    if (h != 0L) NativePlayer.nativeSetPaused(h, true)
+                    setState(State.PAUSED)
+                    postLog("⚠ 音频焦点被永久占用 —— 已暂停，按播放继续")
+                }
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+                if (pausedByFocusLoss && state == State.PAUSED) {
+                    pausedByFocusLoss = false
+                    val h = handle
+                    if (h != 0L) {
+                        if (disconnectSeq.get() > 0 || !NativePlayer.nativeIsPlaying(h)) {
+                            // ★ 流已死：先重建（保持暂停），重建成功后再续播。
+                            //   绝不先 nativeSetPaused(false) —— 那只是清标志，
+                            //   死流不会因此复活，结果就是"界面在走没声音"。
+                            resumeAfterFix = true
+                            if (disconnectSeq.get() == 0L) disconnectSeq.incrementAndGet()
+                            if (outputFixRunning.compareAndSet(false, true)) dispatchOutputFix()
+                            postLog("音频焦点已恢复，输出正在重建…")
+                        } else {
+                            NativePlayer.nativeSetPaused(h, false)
+                            setState(State.PLAYING)
+                            postLog("音频焦点已恢复 —— 继续播放")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fun togglePause() = worker.execute {
         if (!isActive) {
             /*
@@ -696,9 +815,20 @@ object PlayerSession {
         val h = handle
         if (h == 0L) return@execute
         val nowPaused = state != State.PAUSED
+        if (nowPaused) {
+            pausedByFocusLoss = false
+        } else if (!requestSystemAudioFocus()) {
+            postLog("⚠ 当前无法获得音频焦点，请稍后再试")
+            return@execute
+        }
         NativePlayer.nativeSetPaused(h, nowPaused)
         setState(if (nowPaused) State.PAUSED else State.PLAYING)
         postLog(if (nowPaused) "已暂停" else "继续播放")
+        // ★ 恢复播放时若输出流已死，立刻重建（否则只是清暂停标志，没有声音）
+        if (!nowPaused && isSystemAudioSession() && !NativePlayer.nativeIsPlaying(h)) {
+            disconnectSeq.incrementAndGet()
+            if (outputFixRunning.compareAndSet(false, true)) dispatchOutputFix()
+        }
     }
 
     fun seekTo(ms: Int) = worker.execute {
@@ -905,7 +1035,15 @@ object PlayerSession {
                  *    判据用 [DeviceGate.presentAudioDeviceName]：它就是查
                  *    UsbManager 的设备列表，和插拔广播是同一条真相。
                  */
-                val dacPresent = appContext?.let { DeviceGate.presentAudioDeviceName(it) } != null
+                val outputPresent = appContext?.let { ctx ->
+                    if (!Settings.usbDirect(ctx)) {
+                        (ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager)
+                            .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                            .any { it.isSink }
+                    } else {
+                        DeviceGate.presentAudioDeviceName(ctx) != null
+                    }
+                } ?: false
 
                 while (round < 4) {
                     val hh = handle
@@ -917,10 +1055,10 @@ object PlayerSession {
                     val seen = disconnectSeq.get()
 
                     if (round == 0 && state == State.PLAYING) {
-                        if (!dacPresent) {
+                        if (!outputPresent) {
                             NativePlayer.nativeSetPaused(hh, true)
                             setState(State.PAUSED)
-                            postLog("⚠ USB 解码器已拔出，音频输出被系统重置 —— 已暂停，按播放继续。")
+                            postLog("⚠ 音频输出设备已不可用，输出被系统重置 —— 已暂停，按播放继续。")
                         } else {
                             // ★ 路由在动而已（刚插上 / HAL 在接管）—— 不打断
                             postLog("音频输出已切换，正在重建…")
@@ -939,6 +1077,22 @@ object PlayerSession {
                     // 路由可能还在变（拔一次、插一次）—— 给一点时间再看
                     Thread.sleep(250)
                     if (disconnectSeq.get() == seen) break      // 期间没新断开 → 稳了
+                }
+                /*
+                 * ★ 只有"焦点恢复时流已死"这一种情况才在重建后续播。
+                 *   通话进行中的重建（pausedByFocusLoss）保持暂停，
+                 *   等 GAIN 再来 —— p132 在这里无条件续播，导致通话中
+                 *   反复重建风暴。
+                 */
+                if (resumeAfterFix) {
+                    resumeAfterFix = false
+                    val hh = handle
+                    if (state == State.PAUSED && hh != 0L && isSystemAudioSession() &&
+                        NativePlayer.nativeIsPlaying(hh)) {
+                        NativePlayer.nativeSetPaused(hh, false)
+                        setState(State.PLAYING)
+                        postLog("音频输出已恢复 —— 继续播放")
+                    }
                 }
                 if (round >= 4 && disconnectSeq.get() != 0L) {
                     // 反复被掐、修不动 —— 说清楚，别让它永远静默
@@ -983,9 +1137,29 @@ object PlayerSession {
         if (NativePlayer.nativeSystemOutputDead(h)) {
             disconnectSeq.incrementAndGet()
         }
-        if (disconnectSeq.get() > 0 &&
+        /*
+         * ★ 焦点丢失（通话中）期间**不重建**：此时音频通路被电话占着，
+         *   重建只会被反复掐掉（p132 实测重建风暴）。断开计数留着，
+         *   等 AUDIOFOCUS_GAIN 回来再一次性重建 + 续播。
+         */
+        if (disconnectSeq.get() > 0 && !pausedByFocusLoss &&
             outputFixRunning.compareAndSet(false, true)) {
             dispatchOutputFix()
+        }
+        /*
+         * ★ 看门狗：界面在 PLAYING 但输出流其实没在跑（断开标志被错过/清掉）。
+         *   没有它，死流会永远"界面在走、没有声音"。3 秒节流防刷屏。
+         */
+        if (state == State.PLAYING && isSystemAudioSession() &&
+            !NativePlayer.nativeIsPlaying(h) &&
+            disconnectSeq.get() == 0L && !outputFixRunning.get()) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastWatchdogMs > 3000) {
+                lastWatchdogMs = now
+                disconnectSeq.incrementAndGet()
+                postLog("⚠ 输出流未在运行，尝试重建")
+                if (outputFixRunning.compareAndSet(false, true)) dispatchOutputFix()
+            }
         }
 
         if (state != State.PLAYING) return
@@ -1282,6 +1456,7 @@ object PlayerSession {
                 if (!NativePlayer.nativeIsPlaying(h)) {
                     throw IllegalStateException("系统音频未能启动（原因见上一行）。")
                 }
+                requestSystemAudioFocus()
             } else {
                 /*
                  * ★★ PCM 和 DSD 走**两条互斥**的 alt 选择路径。
@@ -1452,6 +1627,7 @@ object PlayerSession {
     }
 
     private fun stopLocked(auto: Boolean) {
+        abandonSystemAudioFocus()
         closeCurrentLocked()
         /*
          * ★★ 这里**刻意不清 [current]，也不清 [durationMs]**。

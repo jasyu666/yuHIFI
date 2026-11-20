@@ -158,6 +158,12 @@ private:
     /** 见 [takeDisconnected]。**只由 error 回调置位**，start/stop 时清 */
     std::atomic<bool> disconnected_{false};
 
+    /**
+     * 最近一次 openStream 成功的流。error 回调用它核对"是不是当前这条流"：
+     * 旧流的迟到 DISCONNECTED 回调不能把新流的状态打掉（p132 实测重建风暴）。
+     */
+    std::atomic<AAudioStream*> newestStream_{nullptr};
+
     // ---- 统计（只读，供报告）----
     std::atomic<uint64_t> callbacks_{0};
     std::atomic<uint64_t> framesFilled_{0};   // 真正取到音频的帧数

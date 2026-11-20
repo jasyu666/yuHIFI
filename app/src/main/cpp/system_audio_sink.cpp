@@ -152,6 +152,7 @@ bool SystemAudioSink::start(PcmSource* source, int sampleRate, int channels,
     if (r != AAUDIO_OK || s == nullptr) {
         return fail(std::string("openStream 失败: ") + AAudio_convertResultToText(r));
     }
+    newestStream_.store(s, std::memory_order_release);
 
     /*
      * ★★ 必须核对系统实际给的速率。
@@ -225,6 +226,7 @@ AAudioStream* SystemAudioSink::detachLocked_() {
     running_.store(false, std::memory_order_release);
     // 主动停掉不算"被系统掐了" —— 别让心跳误以为要重建
     disconnected_.store(false, std::memory_order_release);
+    newestStream_.store(nullptr, std::memory_order_release);
     return s;
 }
 
@@ -261,7 +263,13 @@ std::string SystemAudioSink::restart() {
     const uint64_t errs = errors_.load();
 
     std::string err;
-    // ★ 不用先 stop() —— start() 自己会在锁里摘掉旧流、在锁外关掉它
+    /*
+     * ★ 必须先 stop()：start() 开头有 `if (running_) return fail("已经在跑")`。
+     *   重建循环第二轮进来时旧流还挂着 running=true，不先停就会必然失败
+     *   （p132 实测："系统音频启动失败: 已经在跑"）。
+     *   参数已在上面取走，stop() 清掉 source_ 不影响这里。
+     */
+    stop();
     if (!start(src, rate, ch, sub, &err)) return err;
 
     callbacks_.store(cb + callbacks_.load());
@@ -306,9 +314,17 @@ aaudio_data_callback_result_t SystemAudioSink::dataCallbackThunk(
     return AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
 
-void SystemAudioSink::errorCallbackThunk(AAudioStream*, void* userData,
+void SystemAudioSink::errorCallbackThunk(AAudioStream* stream, void* userData,
                                          aaudio_result_t error) {
     auto* self = static_cast<SystemAudioSink*>(userData);
+    /*
+     * ★ 只认当前这条流的回调。旧流的迟到 DISCONNECTED 会把刚建好的新流
+     *   状态打掉（running=false + disconnected=true），引发无谓的重建风暴。
+     */
+    if (self->newestStream_.load(std::memory_order_acquire) != stream) {
+        LOGW("忽略旧流的 AAudio 错误回调: %s", AAudio_convertResultToText(error));
+        return;
+    }
     self->errors_.fetch_add(1, std::memory_order_relaxed);
     self->lastError_.store(static_cast<int>(error), std::memory_order_relaxed);
 
